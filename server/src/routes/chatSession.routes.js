@@ -24,7 +24,7 @@ const router = express.Router();
 // ==================================================
 
 router.post(
-    "/friendships/:friendshipId/unlock",
+    "/member/:friendshipId/unlock",
     authUser,
     validateObjectId("friendshipId"),
     createFriendshipChatSessionHandler
@@ -36,7 +36,7 @@ router.post(
 // ==================================================
 
 router.post(
-    "/groups/:groupId/unlock",
+    "/group/:groupId/unlock",
     authUser,
     validateObjectId("groupId"),
     createGroupChatSessionHandler

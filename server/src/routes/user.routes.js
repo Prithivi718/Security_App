@@ -18,7 +18,7 @@ const router = express.Router();
 
 // Search users for friend/member requests
 router.get(
-    "/users/search",
+    "/search",
     authUser,
     searchUsersHandler
 );
@@ -26,7 +26,7 @@ router.get(
 
 // Get user by ID
 router.get(
-    "/users/:userId",
+    "/:userId",
     authUser,
     getUserByIdHandler
 );
@@ -34,7 +34,7 @@ router.get(
 
 // Get user by email
 router.get(
-    "/users/email/:emailId",
+    "/email/:emailId",
     authUser,
     getUserByEmailHandler
 );

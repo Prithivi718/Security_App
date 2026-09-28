@@ -114,20 +114,16 @@ const messageSchema = new mongoose.Schema(
 // Ensure exactly one conversation exists
 // ==================================================
 
-messageSchema.pre("validate", function (next) {
+messageSchema.pre("validate", function () {
 
     const hasFriendship = !!this.friendshipId;
     const hasGroup = !!this.groupId;
 
     if (hasFriendship === hasGroup) {
-        return next(
-            new Error(
-                "Message must belong to either a friendship or a group"
-            )
+        throw new Error(
+            "Message must belong to either a friendship or a group"
         );
     }
-
-    next();
 });
 
 
