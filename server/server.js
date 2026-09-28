@@ -1,5 +1,5 @@
-import app from "./app.js";
-import initDb from "./config/initDb.js";
+import app from "./src/app.js";
+import initDb from "./src/config/initDb.js";
 import dotenv from "dotenv";
 dotenv.config();
 
@@ -10,7 +10,7 @@ const startServer = async () => {
         await initDb();
 
         app.listen(PORT, () => {
-            console.log(`Server running on port ${PORT}`);
+            console.log(`Server running on port http://localhost:${PORT} 🚀`);
         });
     } catch (error) {
         console.error("Server startup failed:", error.message);

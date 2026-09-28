@@ -1,0 +1,1018 @@
+You are implementing the CLIENT-SIDE SECURITY + API INTEGRATION layer for a React + Vite application.
+
+IMPORTANT:
+Do NOT design or implement frontend styling/UI.
+Do NOT create chat screens, buttons, layouts, CSS, animations, or visual components.
+Only implement the service layer and integration logic required for secure communication.
+
+The current frontend structure is:
+
+client/
+└── src/
+    ├── assets/
+    ├── components/
+    ├── context/
+    ├── hooks/
+    ├── layouts/
+    ├── pages/
+    ├── routes/
+    ├── services/       <-- implement everything here
+    ├── styles/
+    ├── App.css
+    ├── App.jsx
+    ├── index.css
+    └── main.jsx
+
+The backend architecture already contains:
+
+1. User / authentication
+2. Friendship
+3. Group
+4. ChatSession
+5. Message
+6. Crypto services
+
+The goal of the frontend service layer is to integrate with those APIs and implement the cryptographic operations locally in the browser.
+
+==================================================
+CORE SECURITY ARCHITECTURE
+==================================================
+
+The system has two different security responsibilities.
+
+SERVER:
+- Authenticate user with JWT
+- Verify whether user belongs to friendship/group
+- Verify shared secret using Argon2id
+- Create 10-minute ChatSession
+- Validate/revoke ChatSession
+- Store encrypted messages
+- NEVER decrypt messages
+- NEVER store plaintext messages
+- NEVER store AES encryption keys
+- NEVER return plaintext shared secret
+- NEVER return secretVerifier as an encryption key
+
+CLIENT:
+- User enters shared secret
+- Send shared secret to backend only for authentication/unlock
+- Backend returns successful unlock + session information
+- Keep the shared secret only in client memory while chat is unlocked
+- Derive encryption key locally
+- Encrypt plaintext locally before sending message
+- Send only ciphertext + nonce + authTag + crypto metadata
+- Fetch ciphertext from backend
+- Derive the same key locally
+- Decrypt locally
+- Keep decrypted plaintext only in client memory/UI state
+- Clear secret/key material when the session expires or is locked
+
+==================================================
+VERY IMPORTANT CRYPTOGRAPHIC DISTINCTION
+==================================================
+
+Do NOT do this:
+
+sharedSecret
+    ↓
+send to backend
+    ↓
+backend returns Argon2 hash
+    ↓
+use Argon2 hash as AES key
+
+That is NOT the architecture.
+
+Instead:
+
+CLIENT:
+sharedSecret
+    ↓
+HKDF
+    ↓
+AES-256-GCM encryption key
+
+SERVER:
+sharedSecret
+    ↓
+Argon2id verification
+    ↓
+true / false
+    ↓
+10-minute ChatSession
+
+The Argon2 verifier is for authentication/verification only.
+
+The HKDF-derived AES key is for message encryption/decryption only.
+
+==================================================
+IMPORTANT KDF REQUIREMENT
+==================================================
+
+The implementation must use a conversation-specific public KDF salt.
+
+There must be a distinction between:
+
+secretSalt:
+- Argon2id password-verification salt
+- server-side verification metadata
+- never used as the AES key itself
+
+kdfSalt:
+- public conversation/group key-derivation salt
+- safe to return to authenticated participants
+- used by client HKDF
+- must be stable for the current keyVersion
+
+The backend Friendship and Group models should therefore contain:
+
+kdfSalt
+
+If the current backend models/services do not have kdfSalt yet, DO NOT invent a fake value in the frontend.
+
+Instead:
+1. clearly identify the missing backend field/API data requirement
+2. create the frontend code expecting kdfSalt
+3. document the backend change required
+
+Do not use secretSalt as kdfSalt.
+
+==================================================
+CRYPTO IMPLEMENTATION
+==================================================
+
+Use the browser's Web Crypto API wherever possible:
+
+window.crypto
+window.crypto.subtle
+
+Do not implement AES manually.
+
+Do not implement HKDF manually using homemade HMAC logic if Web Crypto API supports it.
+
+Use:
+
+HKDF
+AES-GCM
+CryptoKey
+
+The frontend crypto must be modular.
+
+Create:
+
+client/src/services/crypto/
+    hkdf.service.js
+    aesGcm.service.js
+    key.service.js
+
+Optionally create:
+
+    secureMemory.service.js
+
+if necessary to centralize volatile key/session material.
+
+==================================================
+HKDF SERVICE
+==================================================
+
+Create:
+
+services/crypto/hkdf.service.js
+
+Responsibilities:
+
+- Convert shared secret into input key material
+- Import secret using Web Crypto
+- Derive AES key using HKDF
+- Accept:
+    sharedSecret
+    kdfSalt
+    info
+- Return a CryptoKey suitable for AES-GCM
+
+Use a fixed protocol context such as:
+
+SecureNet/chat/v1
+
+Do not hardcode a random salt inside the client.
+
+Do not generate a different salt every time the user opens the same conversation.
+
+The same conversation + same keyVersion must derive the same key on Alice and Bob clients.
+
+The interface should conceptually expose:
+
+deriveConversationKey({
+    sharedSecret,
+    kdfSalt,
+    info,
+    keyVersion
+})
+
+Do not persist the raw shared secret or CryptoKey in localStorage/sessionStorage.
+
+==================================================
+AES-GCM SERVICE
+==================================================
+
+Create:
+
+services/crypto/aesGcm.service.js
+
+Responsibilities:
+
+encryptMessage({
+    plaintext,
+    cryptoKey,
+    associatedData
+})
+
+decryptMessage({
+    ciphertext,
+    nonce,
+    authTag,
+    cryptoKey,
+    associatedData
+})
+
+Use AES-256-GCM.
+
+Generate a fresh cryptographically random 12-byte nonce for EVERY encrypted message.
+
+NEVER:
+- reuse the same nonce
+- increment nonce manually
+- use message ID as nonce
+- reset a nonce counter every session
+- derive nonce from timestamp
+
+Generate the nonce using:
+
+crypto.getRandomValues()
+
+The nonce is not secret and must be sent/stored with the ciphertext.
+
+The authTag is required for AES-GCM integrity verification.
+
+Do not silently ignore authentication failures.
+
+If authentication/decryption fails:
+- return an explicit failure
+- do not display plaintext
+- do not retry indefinitely
+
+==================================================
+AES-GCM DATA FORMAT
+==================================================
+
+Encryption should produce:
+
+{
+    ciphertext,
+    nonce,
+    authTag
+}
+
+Use a consistent binary-to-base64 encoding for API transport.
+
+Do NOT mix:
+- hex
+- base64
+- base64url
+- UTF-8
+
+without a clear conversion layer.
+
+Implement small reusable helpers for:
+
+bytesToBase64()
+base64ToBytes()
+stringToUint8Array()
+uint8ArrayToString()
+
+Keep encoding logic out of the API service itself.
+
+==================================================
+AAD / ASSOCIATED DATA
+==================================================
+
+Use AES-GCM authenticated associated data where appropriate.
+
+The same AAD must be supplied during encryption and decryption.
+
+A deterministic conversation-bound AAD can be based on non-secret metadata such as:
+
+conversation type
+conversation ID
+keyVersion
+cryptoVersion
+
+Example concept:
+
+SecureNet|friendship|<friendshipId>|v1|key1
+
+or:
+
+SecureNet|group|<groupId>|v1|key1
+
+The implementation must ensure Alice and Bob generate EXACTLY the same AAD for the same message context.
+
+Do not include plaintext in AAD.
+
+Do not include the secret itself in AAD.
+
+Document the AAD format in cryptoVersion documentation/comments.
+
+==================================================
+KEY SERVICE
+==================================================
+
+Create:
+
+services/crypto/key.service.js
+
+This service coordinates:
+
+sharedSecret
+    ↓
+kdfSalt
+    ↓
+HKDF
+    ↓
+AES-256-GCM CryptoKey
+
+It should cache the CryptoKey ONLY in volatile memory during an active unlock session.
+
+Do NOT put CryptoKey into:
+- localStorage
+- sessionStorage
+- IndexedDB
+- cookies
+- Redux persistence
+- URL
+- query parameters
+
+The key must disappear from the active application state when the secure session is closed/expired.
+
+The service should provide conceptual functions:
+
+openConversationKey(...)
+getConversationKey(...)
+clearConversationKey(...)
+hasConversationKey(...)
+
+Store keys using a runtime Map keyed by a scoped conversation/session identifier.
+
+Do not make the CryptoKey globally accessible.
+
+==================================================
+SECURE SESSION INTEGRATION
+==================================================
+
+Create:
+
+services/chatSession.service.js
+
+This service handles API integration only.
+
+It should expose:
+
+unlockFriendshipChat(friendshipId, secretCode)
+
+unlockGroupChat(groupId, secretCode)
+
+validateChatSession(sessionId)
+
+revokeChatSession(sessionId)
+
+Flow for friendship:
+
+1. User enters sharedSecret
+2. Client calls:
+
+POST /chat-sessions/friendships/:friendshipId/unlock
+
+Body:
+{
+    secretCode
+}
+
+3. Backend verifies shared secret using Argon2id
+4. Backend creates 10-minute ChatSession
+5. Backend returns:
+
+{
+    sessionId,
+    friendshipId,
+    status,
+    expiresAt,
+    kdfSalt,
+    cryptoVersion,
+    keyVersion
+}
+
+6. Client does NOT expect secretCode back
+7. Client keeps sharedSecret temporarily in volatile memory
+8. Client derives CryptoKey locally using HKDF
+9. Client associates the derived CryptoKey with the active conversation/session
+
+Group flow is identical except:
+
+POST /chat-sessions/groups/:groupId/unlock
+
+==================================================
+SECRET HANDLING
+==================================================
+
+The raw shared secret must NEVER be logged.
+
+NEVER:
+
+console.log(secretCode)
+
+logger.info({ secretCode })
+
+logger.debug(secretCode)
+
+API URLs containing secretCode
+
+response.secretCode
+
+localStorage.setItem("secretCode", ...)
+
+sessionStorage.setItem("secretCode", ...)
+
+JWT containing secretCode
+
+The raw shared secret may exist temporarily in JavaScript memory because the user entered it.
+
+After session expiration/revocation:
+- remove the secret from runtime state
+- remove derived CryptoKey references
+- lock the conversation
+
+==================================================
+API SERVICE
+==================================================
+
+Create or use:
+
+client/src/services/api.js
+
+This is the ONLY generic HTTP/API transport layer.
+
+Use the project's existing HTTP library if one exists.
+
+Do not create fetch/axios logic independently inside every service.
+
+api.js should centralize:
+
+- base URL
+- cookies/JWT behavior
+- credentials
+- JSON headers
+- common error handling
+- request/response interceptors if the existing project uses them
+
+Do not place crypto logic in api.js.
+
+Do not place message encryption in api.js.
+
+==================================================
+AUTH / USER SERVICE
+==================================================
+
+Create or update:
+
+client/src/services/auth.service.js
+
+Handle API integration for:
+
+register
+verifyOTP
+resendOTP
+login
+logout
+getCurrentUser
+forgotPassword
+resetPassword
+
+Use backend routes already defined by the project.
+
+JWT is for normal application authentication only.
+
+Never treat JWT as the secure chat encryption key.
+
+==================================================
+USER SEARCH SERVICE
+==================================================
+
+Create:
+
+client/src/services/user.service.js
+
+Support:
+
+searchUsers(query)
+
+getUserById(userId)
+
+getUserByEmail(emailId)
+
+Search is for discovering another user before sending a friendship request.
+
+Do not expose sensitive account fields from responses.
+
+==================================================
+FRIENDSHIP SERVICE
+==================================================
+
+Create:
+
+client/src/services/friendship.service.js
+
+Handle:
+
+sendFriendRequest(receiverId)
+
+acceptFriendRequest(friendshipId)
+
+setSharedSecret(friendshipId, secretCode)
+
+verifyFriendshipSecret(friendshipId, secretCode)
+
+Current backend routes:
+
+POST /friendships/request
+
+PATCH /friendships/:friendshipId/accept
+
+POST /friendships/:friendshipId/secret
+
+POST /friendships/:friendshipId/secret/verify
+
+The client should treat the returned secret verification boolean as authentication state only.
+
+Do NOT use secretVerifier as the AES key.
+
+==================================================
+GROUP SERVICE
+==================================================
+
+Create:
+
+client/src/services/group.service.js
+
+Handle:
+
+createGroup(name, memberIds, secretCode)
+
+getGroup(groupId)
+
+addGroupMember(groupId, newUserId)
+
+removeGroupMember(groupId, targetUserId)
+
+leaveGroup(groupId)
+
+updateGroupMemberRole(groupId, targetUserId, role)
+
+archiveGroup(groupId)
+
+Current backend routes:
+
+POST /groups
+
+GET /groups/:groupId
+
+POST /groups/:groupId/members
+
+DELETE /groups/:groupId/members/:targetUserId
+
+POST /groups/:groupId/leave
+
+PATCH /groups/:groupId/members/:targetUserId/role
+
+PATCH /groups/:groupId/archive
+
+Do not expose secretVerifier or secretSalt in client responses.
+
+==================================================
+MESSAGE SERVICE
+==================================================
+
+Create:
+
+client/src/services/message.service.js
+
+This service is responsible for message API integration and client-side encryption/decryption.
+
+IMPORTANT:
+The server must only receive encrypted message data.
+
+Sending flow:
+
+1. Verify active ChatSession exists in client state
+2. Obtain runtime conversation CryptoKey
+3. Plaintext exists in client memory only
+4. Encrypt plaintext using AES-GCM
+5. Generate fresh random nonce
+6. Produce authTag
+7. POST encrypted payload to backend
+8. Never send plaintext to backend
+9. Clear temporary plaintext variables where practical
+
+Encrypted API payload should conceptually contain:
+
+{
+    friendshipId OR groupId,
+    senderId,
+    ciphertext,
+    nonce,
+    authTag,
+    keyVersion,
+    cryptoVersion,
+    messageType
+}
+
+Do NOT send:
+
+{
+    message: plaintext
+}
+
+Do NOT send:
+
+{
+    secretCode
+}
+
+unless it is specifically the secure-session unlock endpoint.
+
+For reading:
+
+1. Validate active ChatSession
+2. Request encrypted messages
+3. Receive ciphertext + nonce + authTag
+4. Obtain runtime CryptoKey
+5. Decrypt locally
+6. Verify AES-GCM authentication
+7. Return plaintext only to the calling UI/state layer
+8. Never send decrypted plaintext back to the server
+
+==================================================
+MESSAGE READING RULE
+==================================================
+
+A message is readable only while the corresponding secure chat session is active.
+
+When:
+
+ChatSession expires
+OR
+ChatSession is revoked
+OR
+user manually locks chat
+
+then:
+
+- remove conversation CryptoKey from runtime cache
+- clear shared secret from runtime session state
+- prevent further decrypt operations
+- prevent new message encryption
+- require unlock again
+
+Existing ciphertext remains in backend storage.
+
+==================================================
+SESSION VALIDATION
+==================================================
+
+Create a centralized secure-session manager if useful:
+
+services/chatSession.service.js
+or
+services/crypto/key.service.js
+
+Do not scatter session checks throughout random components.
+
+Every encrypted message operation must ensure:
+
+JWT authentication
+    ↓
+ChatSession exists
+    ↓
+ChatSession belongs to current user
+    ↓
+ChatSession is active
+    ↓
+ChatSession not expired
+    ↓
+runtime CryptoKey exists
+    ↓
+allow encryption/decryption
+
+==================================================
+KEY VERSIONING
+==================================================
+
+Every encrypted message must carry:
+
+keyVersion
+cryptoVersion
+
+Initial values:
+
+keyVersion = 1
+cryptoVersion = 1
+
+Do not invent key rotation yet.
+
+But design the crypto code so that:
+
+keyVersion 1
+and
+cryptoVersion 1
+
+can later be changed without rewriting the entire frontend.
+
+The key service must accept keyVersion and use it when constructing HKDF context/AAD.
+
+==================================================
+ERROR HANDLING
+==================================================
+
+Create consistent service-level errors.
+
+Examples:
+
+401:
+invalid shared secret
+chat session expired
+chat session missing
+
+403:
+user is not a friendship participant
+user is not an active group member
+
+404:
+friendship/group/session/message not found
+
+400:
+invalid request
+missing secret
+invalid ID
+
+Crypto errors:
+- invalid key
+- authentication tag mismatch
+- ciphertext malformed
+- nonce malformed
+- key derivation failure
+
+Never silently swallow cryptographic errors.
+
+==================================================
+LOGGING
+==================================================
+
+Frontend logging must never expose:
+
+- shared secret
+- derived AES key
+- CryptoKey
+- plaintext message contents
+- ciphertext if production security logging policy forbids it
+
+Use the project's existing logging mechanism if one exists.
+
+If no logger exists, create a minimal environment-aware logger service.
+
+Avoid raw console logging in production.
+
+Safe logs can contain:
+
+- operation name
+- friendshipId
+- groupId
+- messageId
+- sessionId
+- keyVersion
+- cryptoVersion
+- timestamps
+- success/failure
+- error category
+
+Never log secret material.
+
+==================================================
+MODULAR FOLDER STRUCTURE
+==================================================
+
+Create:
+
+client/src/services/
+│
+├── api.js
+│
+├── auth.service.js
+├── user.service.js
+├── friendship.service.js
+├── group.service.js
+├── chatSession.service.js
+├── message.service.js
+│
+└── crypto/
+    ├── hkdf.service.js
+    ├── aesGcm.service.js
+    └── key.service.js
+
+Optionally:
+
+    ├── encoding.service.js
+    └── secureMemory.service.js
+
+Do not create one giant crypto.js containing everything.
+
+Do not put crypto logic in React components.
+
+Do not put API calls directly inside crypto services.
+
+Do not put Axios/fetch logic inside aesGcm.service.js.
+
+==================================================
+NO FRONTEND UI IMPLEMENTATION
+==================================================
+
+Do not create:
+- ChatPage
+- ChatBox
+- MessageBubble
+- UnlockModal
+- encryption UI
+- CSS
+- design
+- styling
+
+Only produce service-level functions and integration-ready exports.
+
+==================================================
+EXPECTED END-TO-END FLOW
+==================================================
+
+FRIEND CHAT:
+
+User logs in
+    ↓
+JWT authenticated
+    ↓
+Search Bob
+    ↓
+sendFriendRequest()
+    ↓
+Bob accepts
+    ↓
+Friendship status = accepted
+    ↓
+Shared secret established
+    ↓
+Alice opens chat
+    ↓
+Alice enters secret
+    ↓
+POST /chat-sessions/friendships/:friendshipId/unlock
+    ↓
+Backend verifies Argon2id
+    ↓
+Backend returns:
+    sessionId
+    expiresAt
+    kdfSalt
+    keyVersion
+    cryptoVersion
+    ↓
+Client keeps secret in volatile memory
+    ↓
+HKDF locally
+    ↓
+AES-256-GCM CryptoKey locally
+    ↓
+ChatSession active for 10 minutes
+    ↓
+Alice types plaintext
+    ↓
+AES-GCM locally
+    ↓
+ciphertext + nonce + authTag
+    ↓
+POST message API
+    ↓
+Backend stores encrypted message only
+
+
+READ FLOW:
+
+Bob unlocks conversation
+    ↓
+Bob enters same shared secret
+    ↓
+Backend verifies Argon2id
+    ↓
+ChatSession created
+    ↓
+Bob derives same HKDF key locally
+    ↓
+GET encrypted messages
+    ↓
+ciphertext + nonce + authTag
+    ↓
+Bob derives/gets runtime CryptoKey
+    ↓
+AES-GCM decrypt locally
+    ↓
+authentication succeeds
+    ↓
+plaintext exists in Bob client memory
+    ↓
+display through future UI layer
+
+
+SESSION EXPIRATION:
+
+expiresAt reached
+    ↓
+lock conversation
+    ↓
+clear runtime CryptoKey
+    ↓
+clear runtime shared secret
+    ↓
+decryption disabled
+    ↓
+encryption disabled
+    ↓
+user must unlock again
+
+==================================================
+CRITICAL SECURITY RULES
+==================================================
+
+1. Never use Argon2 verifier as AES key.
+2. Never return Argon2 verifier to client as an encryption key.
+3. Never store plaintext message in MongoDB.
+4. Never send plaintext message to server.
+5. Never store shared secret in localStorage.
+6. Never store AES key in localStorage.
+7. Never store AES key in sessionStorage.
+8. Never log shared secret.
+9. Never log AES key.
+10. Never reuse an AES-GCM nonce.
+11. Generate a new random 12-byte nonce per message.
+12. Always verify the GCM authentication tag.
+13. Use consistent HKDF salt/info.
+14. Use conversation-specific KDF context.
+15. Keep CryptoKey in volatile memory only.
+16. Invalidate key/session state when ChatSession expires.
+17. Do not create fake cryptographic values if backend metadata is missing.
+18. Do not silently downgrade security when an expected crypto parameter is absent.
+19. Keep crypto implementation independent of React UI.
+20. Keep transport/API logic independent of crypto implementation.
+
+==================================================
+DELIVERABLE
+==================================================
+
+Implement the service files only.
+
+For every service:
+- use clean ES module imports/exports
+- use async/await
+- validate inputs
+- return predictable objects
+- provide meaningful errors
+- avoid duplication
+- keep functions small
+- document cryptographic assumptions
+- do not modify frontend styling
+
+At the end, provide a short integration map showing:
+
+Component/hook
+    ↓
+service
+    ↓
+API endpoint
+    ↓
+server response
+    ↓
+crypto operation
+    ↓
+result
+
+Also explicitly list any backend changes required before this frontend crypto integration can work, especially:
+- kdfSalt
+- message encryption API
+- message retrieval API
+- keyVersion
+- cryptoVersion
+- ChatSession unlock response
