@@ -22,10 +22,10 @@ const AppLayout = ({ children }) => {
                     </span>
                 </header>
 
-                {/* Page content */}
-                <main className="flex-1 overflow-y-auto">
+                {/* Page content container */}
+                <div className="flex-1 overflow-hidden h-[calc(100vh-3rem)]">
                     {children}
-                </main>
+                </div>
             </SidebarInset>
         </SidebarProvider>
     );

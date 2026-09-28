@@ -83,15 +83,14 @@ const ConversationList = ({ onEstablishSecretClick }) => {
                 <div className="flex items-center gap-1 pt-1">
                     {[
                         { id: "all", label: "All" },
-                        { id: "friends", label: "Friends" },
                         { id: "groups", label: "Groups" }
                     ].map(tab => (
                         <button
                             key={tab.id}
                             onClick={() => setActiveTab(tab.id)}
                             className={`flex-1 py-1 text-[11px] font-medium rounded transition-colors ${activeTab === tab.id
-                                    ? "bg-[#111111] text-[#FFFFFF]"
-                                    : "bg-[#EFEFEF] text-[#444444] hover:bg-[#E2E2E2]"
+                                ? "bg-[#111111] text-[#FFFFFF]"
+                                : "bg-[#EFEFEF] text-[#444444] hover:bg-[#E2E2E2]"
                                 }`}
                         >
                             {tab.label}
@@ -126,8 +125,8 @@ const ConversationList = ({ onEstablishSecretClick }) => {
                                 key={convId}
                                 onClick={() => selectConversation(conv)}
                                 className={`w-full flex items-center gap-3 p-3 text-left transition-colors relative ${isSelected
-                                        ? "bg-[#EAEAEA] border-l-2 border-[#111111]"
-                                        : "bg-[#F4F4F4] hover:bg-[#EFEFEF]"
+                                    ? "bg-[#EAEAEA] border-l-2 border-[#111111]"
+                                    : "bg-[#F4F4F4] hover:bg-[#EFEFEF]"
                                     }`}
                             >
                                 {/* Avatar */}

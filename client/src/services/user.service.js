@@ -5,7 +5,7 @@ import api from "./api.js";
  */
 
 export const searchUsers = async (query) => {
-    return api.get(`/users/search?q=${encodeURIComponent(query)}`);
+    return api.get(`/users/search?query=${encodeURIComponent(query)}`);
 };
 
 export const getUserById = async (userId) => {

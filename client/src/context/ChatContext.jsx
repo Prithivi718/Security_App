@@ -64,7 +64,8 @@ export const ChatProvider = ({ children }) => {
     /**
      * Fetch and decrypt messages for a specified conversation if key is active
      */
-    const fetchMessages = useCallback(async (conv = activeConversation) => {
+    const fetchMessages = useCallback(async (targetConv, isBackground = false) => {
+        const conv = targetConv || activeConversation;
         if (!conv) {
             setMessages([]);
             return;
@@ -77,7 +78,7 @@ export const ChatProvider = ({ children }) => {
         }
 
         try {
-            setIsLoadingMessages(true);
+            if (!isBackground) setIsLoadingMessages(true);
             setMessagesError(null);
 
             const params = conv.type === "friendship"
@@ -89,15 +90,18 @@ export const ChatProvider = ({ children }) => {
             // Backend returns sorted by createdAt desc; reverse for chat display (oldest to newest)
             setMessages([...msgList].reverse());
         } catch (err) {
-            setMessagesError(err.message || "Failed to load messages");
-            setMessages([]);
+            if (!isBackground) {
+                setMessagesError(err.message || "Failed to load messages");
+                setMessages([]);
+            }
         } finally {
-            setIsLoadingMessages(false);
+            if (!isBackground) setIsLoadingMessages(false);
         }
     }, [activeConversation]);
 
     /**
      * Ticker loop: update session remaining seconds every 1 second
+     * & auto-poll active unlocked conversation messages every 2 seconds
      */
     useEffect(() => {
         const interval = setInterval(() => {
@@ -134,6 +138,20 @@ export const ChatProvider = ({ children }) => {
 
         return () => clearInterval(interval);
     }, []);
+
+    // Auto-poll incoming messages for active unlocked conversation every 1 second
+    useEffect(() => {
+        if (!activeConversation) return;
+
+        const pollInterval = setInterval(() => {
+            const convId = `${activeConversation.type}:${activeConversation.id}`;
+            if (hasConversationKey(convId) && activeSessionsRef.current[convId]) {
+                fetchMessages(activeConversation, true);
+            }
+        }, 1000);
+
+        return () => clearInterval(pollInterval);
+    }, [activeConversation, fetchMessages]);
 
     /**
      * Select a conversation
@@ -220,6 +238,12 @@ export const ChatProvider = ({ children }) => {
     const establishSecret = async (friendshipId, secretCode) => {
         await friendshipService.setSharedSecret(friendshipId, secretCode);
         await fetchContacts();
+        setActiveConversation(prev => {
+            if (prev && prev.id === friendshipId) {
+                return { ...prev, secretEstablished: true };
+            }
+            return prev;
+        });
     };
 
     /**

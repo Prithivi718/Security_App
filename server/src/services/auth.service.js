@@ -524,7 +524,9 @@ export const searchUsers = async (query, currentUserId) => {
         return [];
     }
 
-    const search = query.trim().toLowerCase();
+    const searchRaw = query.trim().toLowerCase();
+    // Escape regex special characters (e.g. '.', '+', '*', etc.)
+    const searchEscaped = searchRaw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
     const users = await User.find({
         $and: [
@@ -537,13 +539,13 @@ export const searchUsers = async (query, currentUserId) => {
                 $or: [
                     {
                         userName: {
-                            $regex: search,
+                            $regex: searchEscaped,
                             $options: "i"
                         }
                     },
                     {
                         emailId: {
-                            $regex: search,
+                            $regex: searchEscaped,
                             $options: "i"
                         }
                     }

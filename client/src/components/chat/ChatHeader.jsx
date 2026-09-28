@@ -9,12 +9,13 @@ const formatTimer = (seconds) => {
     return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
 };
 
-const ChatHeader = () => {
+const ChatHeader = ({ onEstablishSecretClick }) => {
     const { activeConversation, isCurrentUnlocked, currentSession, lockConversation } = useChat();
 
     if (!activeConversation) return null;
 
     const remainingSeconds = currentSession?.remainingSeconds || 0;
+    const isSecretEstablished = activeConversation.secretEstablished;
 
     return (
         <div className="h-14 shrink-0 px-4 bg-[#FFFFFF] border-b border-[#D4D4D4] flex items-center justify-between">
@@ -45,6 +46,16 @@ const ChatHeader = () => {
 
             {/* Right: Session Badge & Actions */}
             <div className="flex items-center gap-2">
+                {!isSecretEstablished && activeConversation.type === "friendship" && (
+                    <button
+                        onClick={() => onEstablishSecretClick && onEstablishSecretClick(activeConversation)}
+                        className="flex items-center gap-1.5 px-3 py-1 bg-[#111111] hover:bg-[#2A2A2A] text-white text-xs font-semibold rounded-md transition-colors shadow-xs"
+                    >
+                        <Shield size={13} />
+                        <span>Set Secret Key</span>
+                    </button>
+                )}
+
                 {isCurrentUnlocked ? (
                     <>
                         <div className="flex items-center gap-1.5 bg-[#EAF5EA] text-[#006600] px-2.5 py-1 rounded border border-[#C2E0C2] text-xs font-mono">
@@ -62,10 +73,12 @@ const ChatHeader = () => {
                         </button>
                     </>
                 ) : (
-                    <div className="flex items-center gap-1.5 bg-[#F4F4F4] text-[#777777] px-2.5 py-1 rounded border border-[#D4D4D4] text-xs font-mono">
-                        <Lock size={12} />
-                        <span>Locked</span>
-                    </div>
+                    isSecretEstablished && (
+                        <div className="flex items-center gap-1.5 bg-[#F4F4F4] text-[#777777] px-2.5 py-1 rounded border border-[#D4D4D4] text-xs font-mono">
+                            <Lock size={12} />
+                            <span>Locked</span>
+                        </div>
+                    )
                 )}
             </div>
         </div>

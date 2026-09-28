@@ -25,7 +25,7 @@ const ChatContent = () => {
                     <EmptyChatLanding />
                 ) : (
                     <>
-                        <ChatHeader />
+                        <ChatHeader onEstablishSecretClick={(conv) => setEstablishSecretConv(conv)} />
 
                         <div className="flex-1 flex flex-col min-h-0 relative">
                             {/* Blurred background if locked */}
@@ -35,7 +35,11 @@ const ChatContent = () => {
                             </div>
 
                             {/* Centered Unlock Overlay */}
-                            {!isCurrentUnlocked && <UnlockOverlay />}
+                            {!isCurrentUnlocked && (
+                                <UnlockOverlay
+                                    onEstablishSecretClick={(conv) => setEstablishSecretConv(conv)}
+                                />
+                            )}
                         </div>
                     </>
                 )}
