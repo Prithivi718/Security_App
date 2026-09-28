@@ -15,6 +15,7 @@ import messageRoutes from "./routes/message.routes.js";
 
 
 const app = express();
+app.set("trust proxy", 1);
 
 const allowedOrigins = [
     "http://localhost:5000",
