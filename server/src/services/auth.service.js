@@ -372,6 +372,39 @@ export const createPasswordResetToken = async (
 
 
 // --------------------------------------------------
+// PASSWORD RESET TOKEN VALIDATION
+// --------------------------------------------------
+
+export const validateResetToken = async ({
+    emailId,
+    token,
+}) => {
+    if (!emailId || !token) {
+        const error = new Error("Email ID and token are required");
+        error.statusCode = 400;
+        throw error;
+    }
+
+    const hashedToken = hashValue(token);
+
+    const user = await User.findOne({
+        emailId: emailId.toLowerCase().trim(),
+        reset_token: hashedToken,
+        reset_token_expiry: {
+            $gt: new Date(),
+        },
+    });
+
+    if (!user) {
+        const error = new Error("Invalid or expired reset token");
+        error.statusCode = 400;
+        throw error;
+    }
+
+    return true;
+};
+
+// --------------------------------------------------
 // RESET PASSWORD
 // --------------------------------------------------
 

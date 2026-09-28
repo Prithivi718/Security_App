@@ -210,6 +210,28 @@ export const setSharedSecret = async (
     return friendship;
 };
 
+export const resetSharedSecret = async (friendshipId, userId) => {
+    const friendship = await Friendship.findById(friendshipId);
+    if (!friendship) {
+        throw new Error("Friendship not found");
+    }
+
+    const isParticipant =
+        friendship.userAId.toString() === userId.toString() ||
+        friendship.userBId.toString() === userId.toString();
+
+    if (!isParticipant) {
+        throw new Error("You are not a participant of this friendship");
+    }
+
+    friendship.secretVerifier = null;
+    friendship.secretSalt = null;
+    friendship.cryptoVersion = 0;
+    await friendship.save();
+
+    return friendship;
+};
+
 
 // --------------------------------------------------
 // VERIFY SHARED SECRET

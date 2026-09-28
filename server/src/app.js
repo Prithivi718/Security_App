@@ -17,18 +17,26 @@ import messageRoutes from "./routes/message.routes.js";
 const app = express();
 
 const allowedOrigins = [
-    "http://localhost:5000/",
-    "http://localhost:5173/",
-    "http://localhost:5174/",
-
-    // "http://localhost:5174/", backend and frontend production origins
-]
+    "http://localhost:5000",
+    "http://localhost:5173",
+    "http://localhost:5174",
+    "http://127.0.0.1:5000",
+    "http://127.0.0.1:5173",
+    "http://127.0.0.1:5174",
+];
 
 app.use(cors({
     origin: (origin, cb) => {
         if (!origin) return cb(null, true);
 
-        if (allowedOrigins.includes(origin)) {
+        const cleanOrigin = origin.replace(/\/$/, "");
+        if (
+            allowedOrigins.includes(cleanOrigin) ||
+            allowedOrigins.includes(origin) ||
+            process.env.NODE_ENV !== "production" ||
+            (process.env.CLIENT_URL && cleanOrigin === process.env.CLIENT_URL.replace(/\/$/, "")) ||
+            cleanOrigin.endsWith(".vercel.app")
+        ) {
             cb(null, true);
         } else {
             cb(new Error("Not allowed by CORS"));

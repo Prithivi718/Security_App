@@ -4,6 +4,7 @@ import {
     verifySignupOtp,
     authenticateUser,
     createPasswordResetToken,
+    validateResetToken,
     resetPassword,
     logoutUser,
     getCurrentUser,
@@ -155,6 +156,26 @@ export const requestPasswordReset = async (req, res) => {
         const statusCode = err.statusCode || 500;
         return res.status(statusCode).json({
             message: err.message || "Internal server error",
+        });
+    }
+};
+
+export const validateResetTokenHandler = async (req, res) => {
+    try {
+        const { emailId, token } = req.body;
+
+        await validateResetToken({ emailId, token });
+
+        return res.status(200).json({
+            valid: true,
+            message: "Reset token is valid"
+        });
+    } catch (err) {
+        logger.error("Validate Reset Token error:", err);
+        const statusCode = err.statusCode || 400;
+        return res.status(statusCode).json({
+            valid: false,
+            message: err.message || "Invalid or expired reset token",
         });
     }
 };

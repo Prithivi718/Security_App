@@ -5,10 +5,15 @@
 
 const getBaseURL = () => {
     if (typeof import.meta !== "undefined" && import.meta.env) {
-        return import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE_URL || "http://localhost:5000/api";
+        if (import.meta.env.VITE_API_URL) return import.meta.env.VITE_API_URL;
+        if (import.meta.env.VITE_API_BASE_URL) return import.meta.env.VITE_API_BASE_URL;
     }
     if (typeof process !== "undefined" && process.env) {
-        return process.env.VITE_API_URL || process.env.VITE_API_BASE_URL || "http://localhost:5000/api";
+        if (process.env.VITE_API_URL) return process.env.VITE_API_URL;
+        if (process.env.VITE_API_BASE_URL) return process.env.VITE_API_BASE_URL;
+    }
+    if (typeof window !== "undefined" && window.location && window.location.hostname !== "localhost" && window.location.hostname !== "127.0.0.1") {
+        return "/api";
     }
     return "http://localhost:5000/api";
 };

@@ -1,7 +1,8 @@
 /**
  * Key Service - In-Memory Volatile Key Manager
  * 
- * Stores derived AES-256-GCM session keys exclusively in JavaScript volatile memory (runtime Map).
+ * Stores derived AES-256-GCM session keys (CryptoKey objects or Uint8Array buffers)
+ * exclusively in JavaScript volatile memory (runtime Map).
  * Keys are never stored in localStorage, sessionStorage, cookies, or IndexedDB.
  * Keys are automatically cleared when chat sessions are locked, revoked, or expired.
  */
@@ -9,7 +10,7 @@
 class KeyService {
     constructor() {
         /**
-         * @type {Map<string, Uint8Array>}
+         * @type {Map<string, CryptoKey|Uint8Array>}
          * Keyed by conversationId (e.g. `friendship:<id>` or `group:<id>`)
          */
         this.keyStore = new Map();
@@ -19,7 +20,7 @@ class KeyService {
      * Store a derived session key in volatile memory
      * 
      * @param {string} conversationId Scoped conversation identifier
-     * @param {Uint8Array|Buffer} sessionKey 32-byte derived session key
+     * @param {CryptoKey|Uint8Array} sessionKey Derived session key
      */
     openConversationKey(conversationId, sessionKey) {
         if (!conversationId) {
@@ -30,18 +31,14 @@ class KeyService {
             throw new Error("Session key is required");
         }
 
-        const keyBuffer = Buffer.isBuffer(sessionKey)
-            ? new Uint8Array(sessionKey)
-            : sessionKey;
-
-        this.keyStore.set(conversationId.toString(), keyBuffer);
+        this.keyStore.set(conversationId.toString(), sessionKey);
     }
 
     /**
      * Retrieve active session key from volatile memory
      * 
      * @param {string} conversationId
-     * @returns {Uint8Array|null} Session key if active, or null
+     * @returns {CryptoKey|Uint8Array|null} Session key if active, or null
      */
     getConversationKey(conversationId) {
         if (!conversationId) return null;

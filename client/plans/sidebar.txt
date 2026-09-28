@@ -1,0 +1,1020 @@
+Implement ONLY the SecureNet main application SIDEBAR component.
+
+Do not build any pages, chat UI, search page, friend request page, settings page, or dashboard content yet.
+
+Use the existing client folder structure and existing SecureNet design system already established in this project. Follow the existing grayscale "Salt & Pepper" palette (#FFFFFF, #D4D4D4, #B3B3B3, #2B2B2B, #111111), Inter for normal UI text, and JetBrains Mono only for technical/security values.
+
+REFERENCES — USE THESE AS IMPLEMENTATION REFERENCES:
+
+Sidebar:
+https://animate-ui.com/docs/components/radix/sidebar
+
+Tooltip:
+https://animate-ui.com/docs/components/radix/tooltip
+
+Search these resources and adapt their implementation to the existing SecureNet codebase and UI standards. Do not blindly copy a different visual theme from the references.
+
+--------------------------------------------------
+SCOPE
+--------------------------------------------------
+
+Build ONLY the reusable SecureNet sidebar/navigation component.
+
+The sidebar must support:
+
+1. Expanded state
+2. Collapsed/icon-only state
+3. Smooth expand/collapse animation
+4. Sidebar trigger
+5. Tooltip when collapsed
+6. Active navigation state
+7. Keyboard accessibility
+8. Responsive behavior
+9. Proper mobile sidebar behavior using the referenced component structure where appropriate
+
+Use the Animate UI / shadcn Sidebar architecture rather than building a custom sidebar from scratch.
+
+Prefer the composable structure:
+
+SidebarProvider
+Sidebar
+SidebarHeader
+SidebarContent
+SidebarFooter
+SidebarMenu
+SidebarMenuItem
+SidebarMenuButton
+SidebarTrigger
+SidebarRail
+useSidebar
+
+Use the reference implementation to determine the correct composition.
+
+--------------------------------------------------
+SIDEBAR STRUCTURE
+--------------------------------------------------
+
+The final sidebar should visually resemble the provided SecureNet reference:
+
+LEFT SIDE:
+compact vertical navigation rail
+
+When expanded:
+icon + label
+
+When collapsed:
+icon only + tooltip
+
+Top:
+SecureNet logo / brand
+
+Middle:
+primary navigation
+
+Bottom:
+profile/settings area
+
+--------------------------------------------------
+APPLICATION NAVIGATION
+--------------------------------------------------
+
+Create exactly these primary navigation items for now:
+
+1. Chats
+2. Users
+3. Settings
+
+Chats:
+Purpose:
+Open the main conversation area.
+
+Users:
+Purpose:
+Open user discovery / friend management.
+
+Settings:
+Purpose:
+Open profile and account settings.
+
+Do NOT create additional navigation items yet.
+
+Do NOT add:
+- Dashboard
+- Notifications
+- Admin
+- Analytics
+- Security Center
+- Help
+- Files
+- Groups as a separate sidebar item
+
+Groups will be represented inside the chat/conversation experience later.
+
+--------------------------------------------------
+ICON RULE — VERY IMPORTANT
+--------------------------------------------------
+
+DO NOT CREATE OR DESIGN ANY APPLICATION ICONS YOURSELF.
+
+I will provide the SecureNet logo/icon assets manually inside:
+
+client/src/assets/
+
+When an application-specific icon or SecureNet branding asset is required:
+
+1. Check client/src/assets/
+2. Import the provided asset
+3. Use it directly
+
+DO NOT:
+- draw SVG icons yourself
+- generate SVG files
+- create CSS icons
+- create replacement logos
+- generate placeholder illustrations
+- use emoji
+- invent a SecureNet icon
+
+For the three navigation controls:
+
+Chats
+Users
+Settings
+
+use existing generic icons from the project's approved icon library ONLY if I have not supplied application-specific assets for those controls.
+
+The SecureNet logo must use the asset I provide.
+
+Do not create a new logo.
+
+--------------------------------------------------
+CHAT ICON
+--------------------------------------------------
+
+The Chats navigation item should visually communicate the main messaging area.
+
+Use a chat/message icon similar in semantic purpose to the WhatsApp-style chat navigation reference I provided, but adapt it to SecureNet's grayscale visual language.
+
+Do not copy WhatsApp branding.
+
+The item should navigate to the application's main chat route.
+
+--------------------------------------------------
+USERS ICON
+--------------------------------------------------
+
+The Users navigation item should represent:
+
+Find People
+Friend Requests
+Sent Requests
+Friend management
+
+Do NOT create these pages now.
+
+Only create the navigation entry that will later route to the user-management/discovery section.
+
+The sidebar itself should remain simple.
+
+--------------------------------------------------
+SETTINGS ICON
+--------------------------------------------------
+
+The Settings navigation item should represent:
+
+Profile
+Account settings
+Password reset
+Security settings
+
+Do NOT build the settings page now.
+
+Only create the navigation entry and route placeholder according to the existing route architecture.
+
+--------------------------------------------------
+TOOLTIPS
+--------------------------------------------------
+
+Use the provided Animate UI Tooltip reference:
+
+https://animate-ui.com/docs/components/radix/tooltip
+
+When the sidebar is collapsed:
+
+Chats → tooltip "Chats"
+Users → tooltip "Users"
+Settings → tooltip "Settings"
+
+Tooltips should appear on hover and keyboard focus.
+
+Do not show redundant tooltips when the sidebar is expanded and the label is already visible.
+
+Follow the reference tooltip behavior and adapt its styling to SecureNet.
+
+--------------------------------------------------
+EXPANDED SIDEBAR
+--------------------------------------------------
+
+Expanded:
+
+Logo
+SecureNet
+
+Navigation:
+
+[Chat icon]   Chats
+[Users icon]  Users
+[Gear icon]   Settings
+
+Each item should have:
+
+icon
+label
+hover state
+active state
+keyboard focus state
+
+Use restrained grayscale contrast.
+
+Primary navigation text:
+#111111
+
+Normal background:
+#FFFFFF
+
+Hover:
+#D4D4D4 / subtle surface state
+
+Active:
+#2B2B2B background with white foreground
+
+Do not use blue or purple active states.
+
+--------------------------------------------------
+COLLAPSED SIDEBAR
+--------------------------------------------------
+
+Collapsed:
+
+show only icons.
+
+Example:
+
+[SecureNet icon]
+
+[Chat]
+[Users]
+[Settings]
+
+Use Animate UI / shadcn sidebar collapse behavior.
+
+When hovering/focusing:
+
+show tooltip.
+
+The active icon should retain a strong grayscale state.
+
+Do not change the icon itself to communicate active state.
+
+Use background/contrast instead.
+
+--------------------------------------------------
+SIDEBAR HEADER
+--------------------------------------------------
+
+Expanded:
+
+Show provided SecureNet logo asset
++
+"SecureNet"
+
+Collapsed:
+
+Show logo only.
+
+Do not create text-based replacement artwork.
+
+The logo must come from:
+
+client/src/assets/
+
+--------------------------------------------------
+SIDEBAR FOOTER
+--------------------------------------------------
+
+At the bottom:
+
+Display the currently authenticated user's compact identity.
+
+Use existing authenticated user data from AuthContext if already available.
+
+Show:
+
+avatar if an existing asset/data source exists
+username
+
+When collapsed:
+show compact avatar/icon.
+
+Do not expose:
+email
+password
+security secrets
+session IDs
+tokens
+
+unless the existing authenticated profile design already requires them.
+
+Do not create a new profile page.
+
+--------------------------------------------------
+ACTIVE ROUTE
+--------------------------------------------------
+
+Use the existing React Router setup.
+
+The sidebar should detect the current route and visually identify the active navigation item.
+
+Expected conceptual mapping:
+
+/app/chats
+→ Chats active
+
+/app/users
+→ Users active
+
+/app/settings
+→ Settings active
+
+Adapt these paths if the existing route architecture already uses different names.
+
+Do not create duplicate routing systems.
+
+--------------------------------------------------
+SIDEBAR BEHAVIOR
+--------------------------------------------------
+
+The sidebar must:
+
+- expand
+- collapse
+- preserve application content space
+- animate cleanly
+- not overlap desktop content unnecessarily
+- remain accessible
+- work with keyboard navigation
+
+Use the reference SidebarProvider/useSidebar architecture where possible.
+
+Do not use arbitrary fixed-position hacks if the referenced sidebar system already provides the required behavior.
+
+--------------------------------------------------
+MOBILE
+--------------------------------------------------
+
+On mobile:
+
+Use the referenced responsive sidebar behavior.
+
+The sidebar should become an appropriate overlay/sheet/drawer style navigation when necessary.
+
+Do not create a second unrelated mobile sidebar implementation.
+
+Use the existing shadcn/Animate UI structure.
+
+--------------------------------------------------
+STYLING
+--------------------------------------------------
+
+Do not over-style the sidebar.
+
+Avoid:
+
+- gradients
+- neon
+- glow
+- cyberpunk
+- glassmorphism
+- excessive shadows
+- decorative backgrounds
+
+The sidebar should feel like a serious communication application.
+
+Use:
+
+white
+light gray
+mid gray
+charcoal
+black
+
+and restrained borders.
+
+--------------------------------------------------
+COMPONENT ARCHITECTURE
+--------------------------------------------------
+
+Create the sidebar as a reusable component.
+
+Suggested:
+
+client/src/components/layout/SecureNetSidebar.tsx
+
+or adapt to the existing component conventions already present in the project.
+
+Do not put page-specific content inside the sidebar.
+
+Do not hardcode chat lists into the sidebar.
+
+Do not fetch users/messages inside the sidebar.
+
+Do not put API calls inside the sidebar.
+
+The sidebar is a navigation/presentation component.
+
+--------------------------------------------------
+STATE / ROUTING
+--------------------------------------------------
+
+The sidebar should only manage:
+
+- collapsed/expanded UI state through the sidebar system
+- active navigation state
+- navigation events
+
+Do not put authentication logic inside it.
+
+Use existing AuthContext only for displaying authenticated-user information.
+
+--------------------------------------------------
+IMPORTANT: DO NOT BUILD THESE YET
+--------------------------------------------------
+
+Do not implement:
+
+- chat list
+- user search
+- friend request list
+- sent requests
+- friend profiles
+- settings forms
+- password reset UI
+- chat screen
+- group chat
+- messages
+- session unlock
+- cryptography
+- notifications
+
+Only the sidebar.
+
+--------------------------------------------------
+FINAL RESULT
+--------------------------------------------------
+
+I want a reusable SecureNet sidebar that visually and behaviorally works like this:
+
+EXPANDED:
+
+┌──────────────────────┐
+│ SecureNet            │
+│                      │
+│ [chat]    Chats      │
+│ [users]   Users      │
+│ [gear]    Settings   │
+│                      │
+│                      │
+│                      │
+│ [avatar] username    │
+└──────────────────────┘
+
+COLLAPSED:
+
+┌──────────┐
+│  [logo]  │
+│          │
+│  [chat]  │ ← tooltip: Chats
+│  [users] │ ← tooltip: Users
+│  [gear]  │ ← tooltip: Settings
+│          │
+│          │
+│  [avatar]│
+└──────────┘
+
+The sidebar must use the supplied resources as implementation references:
+
+https://animate-ui.com/docs/components/radix/sidebar
+
+https://animate-ui.com/docs/components/radix/tooltip
+
+Follow the existing client folder architecture, grayscale theme, fonts, shadcn components, and supplied assets.
+
+Do not create any icons or logos yourself.
+
+At the end, report:
+1. Files created/modified
+2. Routes expected by the sidebar
+3. Any dependency required
+4. Any existing project file that must be adjusted for integration
+
+Do not implement anything outside the sidebar scope.
+
+
+@beautifulMention  fix these  and about hte component of sidebar, who asked you to build on your own, i just need u to refer these websites:
+sidebar: https://animate-ui.com/docs/components/radix/sidebar
+npx shadcn@latest add @animate-ui/components-radix-sidebar
+'use client';
+
+import * as React from 'react';
+
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from '@/components/ui/breadcrumb';
+import { Separator } from '@/components/ui/separator';
+import {
+  SidebarProvider,
+  SidebarInset,
+  SidebarTrigger,
+  Sidebar,
+  SidebarHeader,
+  SidebarContent,
+  SidebarFooter,
+  SidebarRail,
+  SidebarGroup,
+  SidebarGroupLabel,
+  SidebarMenu,
+  SidebarMenuItem,
+  SidebarMenuButton,
+  SidebarMenuSub,
+  SidebarMenuSubItem,
+  SidebarMenuSubButton,
+  SidebarMenuAction,
+} from '@/components/animate-ui/components/radix/sidebar';
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/animate-ui/primitives/radix/collapsible';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuShortcut,
+  DropdownMenuTrigger,
+} from '@/components/animate-ui/components/radix/dropdown-menu';
+import {
+  AudioWaveform,
+  BadgeCheck,
+  Bell,
+  BookOpen,
+  Bot,
+  ChevronRight,
+  ChevronsUpDown,
+  Command,
+  CreditCard,
+  Folder,
+  Forward,
+  Frame,
+  GalleryVerticalEnd,
+  LogOut,
+  Map,
+  MoreHorizontal,
+  PieChart,
+  Plus,
+  Settings2,
+  Sparkles,
+  SquareTerminal,
+  Trash2,
+} from 'lucide-react';
+import {
+  Avatar,
+  AvatarFallback,
+  AvatarImage,
+} from '@/components/ui/avatar';
+import { useIsMobile } from '@/hooks/use-mobile';
+
+const DATA = {
+  user: {
+    name: 'Skyleen',
+    email: 'skyleen@example.com',
+    avatar:
+      'https://pbs.twimg.com/profile_images/1909615404789506048/MTqvRsjo_400x400.jpg',
+  },
+  teams: [
+    {
+      name: 'Acme Inc',
+      logo: GalleryVerticalEnd,
+      plan: 'Enterprise',
+    },
+    {
+      name: 'Acme Corp.',
+      logo: AudioWaveform,
+      plan: 'Startup',
+    },
+    {
+      name: 'Evil Corp.',
+      logo: Command,
+      plan: 'Free',
+    },
+  ],
+  navMain: [
+    {
+      title: 'Playground',
+      url: '#',
+      icon: SquareTerminal,
+      isActive: true,
+      items: [
+        {
+          title: 'History',
+          url: '#',
+        },
+        {
+          title: 'Starred',
+          url: '#',
+        },
+        {
+          title: 'Settings',
+          url: '#',
+        },
+      ],
+    },
+    {
+      title: 'Models',
+      url: '#',
+      icon: Bot,
+      items: [
+        {
+          title: 'Genesis',
+          url: '#',
+        },
+        {
+          title: 'Explorer',
+          url: '#',
+        },
+        {
+          title: 'Quantum',
+          url: '#',
+        },
+      ],
+    },
+    {
+      title: 'Documentation',
+      url: '#',
+      icon: BookOpen,
+      items: [
+        {
+          title: 'Introduction',
+          url: '#',
+        },
+        {
+          title: 'Get Started',
+          url: '#',
+        },
+        {
+          title: 'Tutorials',
+          url: '#',
+        },
+        {
+          title: 'Changelog',
+          url: '#',
+        },
+      ],
+    },
+    {
+      title: 'Settings',
+      url: '#',
+      icon: Settings2,
+      items: [
+        {
+          title: 'General',
+          url: '#',
+        },
+        {
+          title: 'Team',
+          url: '#',
+        },
+        {
+          title: 'Billing',
+          url: '#',
+        },
+        {
+          title: 'Limits',
+          url: '#',
+        },
+      ],
+    },
+  ],
+  projects: [
+    {
+      name: 'Design Engineering',
+      url: '#',
+      icon: Frame,
+    },
+    {
+      name: 'Sales & Marketing',
+      url: '#',
+      icon: PieChart,
+    },
+    {
+      name: 'Travel',
+      url: '#',
+      icon: Map,
+    },
+  ],
+};
+
+export const RadixSidebarDemo = () => {
+  const isMobile = useIsMobile();
+  const [activeTeam, setActiveTeam] = React.useState(DATA.teams[0]);
+
+  if (!activeTeam) return null;
+
+  return (
+    <SidebarProvider>
+      <Sidebar collapsible="icon">
+        <SidebarHeader>
+          {/* Team Switcher */}
+          <SidebarMenu>
+            <SidebarMenuItem>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <SidebarMenuButton
+                    size="lg"
+                    className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
+                  >
+                    <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
+                      <activeTeam.logo className="size-4" />
+                    </div>
+                    <div className="grid flex-1 text-left text-sm leading-tight">
+                      <span className="truncate font-semibold">
+                        {activeTeam.name}
+                      </span>
+                      <span className="truncate text-xs">
+                        {activeTeam.plan}
+                      </span>
+                    </div>
+                    <ChevronsUpDown className="ml-auto" />
+                  </SidebarMenuButton>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent
+                  className="w-[--radix-dropdown-menu-trigger-width] min-w-56 rounded-lg"
+                  align="start"
+                  side={isMobile ? 'bottom' : 'right'}
+                  sideOffset={4}
+                >
+                  <DropdownMenuLabel className="text-xs text-muted-foreground">
+                    Teams
+                  </DropdownMenuLabel>
+                  {DATA.teams.map((team, index) => (
+                    <DropdownMenuItem
+                      key={team.name}
+                      onClick={() => setActiveTeam(team)}
+                      className="gap-2 p-2"
+                    >
+                      <div className="flex size-6 items-center justify-center rounded-sm border">
+                        <team.logo className="size-4 shrink-0" />
+                      </div>
+                      {team.name}
+                      <DropdownMenuShortcut>⌘{index + 1}</DropdownMenuShortcut>
+                    </DropdownMenuItem>
+                  ))}
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem className="gap-2 p-2">
+                    <div className="flex size-6 items-center justify-center rounded-md border bg-background">
+                      <Plus className="size-4" />
+                    </div>
+                    <div className="font-medium text-muted-foreground">
+                      Add team
+                    </div>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </SidebarMenuItem>
+          </SidebarMenu>
+          {/* Team Switcher */}
+        </SidebarHeader>
+
+        <SidebarContent>
+          {/* Nav Main */}
+          <SidebarGroup>
+            <SidebarGroupLabel>Platform</SidebarGroupLabel>
+            <SidebarMenu>
+              {DATA.navMain.map((item) => (
+                <Collapsible
+                  key={item.title}
+                  asChild
+                  defaultOpen={item.isActive}
+                  className="group/collapsible"
+                >
+                  <SidebarMenuItem>
+                    <CollapsibleTrigger asChild>
+                      <SidebarMenuButton tooltip={item.title}>
+                        {item.icon && <item.icon />}
+                        <span>{item.title}</span>
+                        <ChevronRight className="ml-auto transition-transform duration-300 group-data-[state=open]/collapsible:rotate-90" />
+                      </SidebarMenuButton>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent>
+                      <SidebarMenuSub>
+                        {item.items?.map((subItem) => (
+                          <SidebarMenuSubItem key={subItem.title}>
+                            <SidebarMenuSubButton asChild>
+                              <a href={subItem.url}>
+                                <span>{subItem.title}</span>
+                              </a>
+                            </SidebarMenuSubButton>
+                          </SidebarMenuSubItem>
+                        ))}
+                      </SidebarMenuSub>
+                    </CollapsibleContent>
+                  </SidebarMenuItem>
+                </Collapsible>
+              ))}
+            </SidebarMenu>
+          </SidebarGroup>
+          {/* Nav Main */}
+
+          {/* Nav Project */}
+          <SidebarGroup className="group-data-[collapsible=icon]:hidden">
+            <SidebarGroupLabel>Projects</SidebarGroupLabel>
+            <SidebarMenu>
+              {DATA.projects.map((item) => (
+                <SidebarMenuItem key={item.name}>
+                  <SidebarMenuButton asChild>
+                    <a href={item.url}>
+                      <item.icon />
+                      <span>{item.name}</span>
+                    </a>
+                  </SidebarMenuButton>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <SidebarMenuAction showOnHover>
+                        <MoreHorizontal />
+                        <span className="sr-only">More</span>
+                      </SidebarMenuAction>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent
+                      className="w-48 rounded-lg"
+                      side={isMobile ? 'bottom' : 'right'}
+                      align={isMobile ? 'end' : 'start'}
+                    >
+                      <DropdownMenuItem>
+                        <Folder className="text-muted-foreground" />
+                        <span>View Project</span>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem>
+                        <Forward className="text-muted-foreground" />
+                        <span>Share Project</span>
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem>
+                        <Trash2 className="text-muted-foreground" />
+                        <span>Delete Project</span>
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </SidebarMenuItem>
+              ))}
+              <SidebarMenuItem>
+                <SidebarMenuButton className="text-sidebar-foreground/70">
+                  <MoreHorizontal className="text-sidebar-foreground/70" />
+                  <span>More</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            </SidebarMenu>
+          </SidebarGroup>
+          {/* Nav Project */}
+        </SidebarContent>
+        <SidebarFooter>
+          {/* Nav User */}
+          <SidebarMenu>
+            <SidebarMenuItem>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <SidebarMenuButton
+                    size="lg"
+                    className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
+                  >
+                    <Avatar className="h-8 w-8 rounded-lg">
+                      <AvatarImage
+                        src={DATA.user.avatar}
+                        alt={DATA.user.name}
+                      />
+                      <AvatarFallback className="rounded-lg">CN</AvatarFallback>
+                    </Avatar>
+                    <div className="grid flex-1 text-left text-sm leading-tight">
+                      <span className="truncate font-semibold">
+                        {DATA.user.name}
+                      </span>
+                      <span className="truncate text-xs">
+                        {DATA.user.email}
+                      </span>
+                    </div>
+                    <ChevronsUpDown className="ml-auto size-4" />
+                  </SidebarMenuButton>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent
+                  className="w-[--radix-dropdown-menu-trigger-width] min-w-56 rounded-lg"
+                  side={isMobile ? 'bottom' : 'right'}
+                  align="end"
+                  sideOffset={4}
+                >
+                  <DropdownMenuLabel className="p-0 font-normal">
+                    <div className="flex items-center gap-2 px-1 py-1.5 text-left text-sm">
+                      <Avatar className="h-8 w-8 rounded-lg">
+                        <AvatarImage
+                          src={DATA.user.avatar}
+                          alt={DATA.user.name}
+                        />
+                        <AvatarFallback className="rounded-lg">
+                          CN
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="grid flex-1 text-left text-sm leading-tight">
+                        <span className="truncate font-semibold">
+                          {DATA.user.name}
+                        </span>
+                        <span className="truncate text-xs">
+                          {DATA.user.email}
+                        </span>
+                      </div>
+                    </div>
+                  </DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuGroup>
+                    <DropdownMenuItem>
+                      <Sparkles />
+                      Upgrade to Pro
+                    </DropdownMenuItem>
+                  </DropdownMenuGroup>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuGroup>
+                    <DropdownMenuItem>
+                      <BadgeCheck />
+                      Account
+                    </DropdownMenuItem>
+                    <DropdownMenuItem>
+                      <CreditCard />
+                      Billing
+                    </DropdownMenuItem>
+                    <DropdownMenuItem>
+                      <Bell />
+                      Notifications
+                    </DropdownMenuItem>
+                  </DropdownMenuGroup>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem>
+                    <LogOut />
+                    Log out
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </SidebarMenuItem>
+          </SidebarMenu>
+          {/* Nav User */}
+        </SidebarFooter>
+        <SidebarRail />
+      </Sidebar>
+
+      <SidebarInset>
+        <header className="flex h-16 shrink-0 items-center gap-2 transition-[width,height] ease-linear group-has-[[data-collapsible=icon]]/sidebar-wrapper:h-12">
+          <div className="flex items-center gap-2 px-4">
+            <SidebarTrigger className="-ml-1" />
+            <Separator orientation="vertical" className="mr-2 h-4" />
+            <Breadcrumb>
+              <BreadcrumbList>
+                <BreadcrumbItem className="hidden md:block">
+                  <BreadcrumbLink href="#">
+                    Building Your Application
+                  </BreadcrumbLink>
+                </BreadcrumbItem>
+                <BreadcrumbSeparator className="hidden md:block" />
+                <BreadcrumbItem>
+                  <BreadcrumbPage>Data Fetching</BreadcrumbPage>
+                </BreadcrumbItem>
+              </BreadcrumbList>
+            </Breadcrumb>
+          </div>
+        </header>
+        <div className="flex flex-1 flex-col gap-4 p-4 pt-0">
+          <div className="grid auto-rows-min gap-4 md:grid-cols-3">
+            <div className="aspect-video rounded-xl bg-muted/50" />
+            <div className="aspect-video rounded-xl bg-muted/50" />
+            <div className="aspect-video rounded-xl bg-muted/50" />
+          </div>
+          <div className="min-h-[100vh] flex-1 rounded-xl bg-muted/50 md:min-h-min" />
+        </div>
+      </SidebarInset>
+    </SidebarProvider>
+  );
+};
+
+check the code again and it's appopriate styling in our appliacation. 

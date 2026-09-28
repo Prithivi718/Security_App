@@ -1,0 +1,1120 @@
+You are implementing the COMPLETE AUTHENTICATION UI FLOW for the SecureNet React frontend.
+
+IMPORTANT:
+Do NOT modify the backend authentication business logic unless a missing endpoint is explicitly identified as required.
+Do NOT redesign the existing backend.
+Do NOT implement chat/friend/group UI yet.
+This task is ONLY authentication UX + frontend API integration.
+
+Use the existing React + Vite + TypeScript + shadcn/ui structure.
+
+==================================================
+FRONTEND STRUCTURE
+==================================================
+
+Only work inside:
+
+client/src/
+
+Follow the existing structure:
+
+src/
+├── components/
+├── pages/
+├── services/
+├── hooks/
+├── context/
+├── routes/
+├── utils/
+├── layouts/
+└── styles/
+
+Do not create a new architecture.
+
+==================================================
+DESIGN SYSTEM
+==================================================
+
+Use the existing SecureNet "Salt & Pepper" grayscale design.
+
+Colors:
+
+--background: #FFFFFF
+--surface: #D4D4D4
+--surface-secondary: #B3B3B3
+--charcoal: #2B2B2B
+--black: #111111
+
+Primary text:
+#111111
+
+Secondary text:
+#666666
+
+Error:
+Use a restrained dark/red error treatment only where necessary.
+Do not turn the entire UI red.
+
+Success:
+Use subtle positive feedback while preserving the grayscale theme.
+
+Typography:
+
+Inter:
+- headings
+- labels
+- buttons
+- descriptions
+- form text
+- error/success messages
+- normal UI
+
+JetBrains Mono:
+- OTP digits
+- password/security code values
+- technical/token values only when displayed
+- reset token only when technically necessary
+
+Do not use monospace for normal UI text.
+
+==================================================
+REFERENCE COMPONENTS
+==================================================
+
+Use the attached sign-in component as the visual starting point.
+
+Preserve its overall structure:
+
+Card
+→ Header
+→ icon
+→ title
+→ description
+→ separator
+→ form
+→ fields
+→ actions
+→ primary button
+
+Keep the design minimal and grayscale.
+
+The existing sign-in component uses:
+Card
+CardHeader
+CardTitle
+CardDescription
+CardContent
+Checkbox
+Input
+Label
+Separator
+Button
+EyeIcon / EyeOffIcon
+RiUserFill
+
+Reuse the existing shadcn component system rather than introducing a different UI library.
+
+The OTP dialog should follow the supplied OTP modal reference:
+- centered modal
+- four/five/six individual digit inputs depending on actual backend OTP length
+- countdown
+- verify button
+- resend button
+- error/success feedback
+
+IMPORTANT:
+The backend currently generates a SIX-DIGIT OTP.
+The frontend MUST therefore implement:
+6 OTP inputs
+
+Do NOT implement 4 OTP inputs unless backend OTP length is intentionally changed.
+
+==================================================
+AUTHENTICATION PAGES
+==================================================
+
+Create the authentication flow around these screens/states:
+
+1. Login
+2. Register
+3. OTP verification
+4. Forgot Password
+5. Reset Password
+
+The user should experience these as a coherent authentication system, not unrelated pages.
+
+==================================================
+LOGIN FLOW
+==================================================
+
+Initial state:
+
+Login form contains:
+
+Email
+Password
+Keep me logged in
+Forgot password?
+Continue
+
+Password visibility toggle must work.
+
+Use the existing sign-in component as the baseline.
+
+On submit:
+
+Call:
+
+auth.service.js
+→ login(emailId, password)
+
+Backend returns successful authentication:
+→ store/update authenticated user state
+→ update auth context
+→ navigate to main application page
+
+Successful login should NOT show the OTP modal.
+
+--------------------------------------------------
+UNVERIFIED ACCOUNT FLOW
+--------------------------------------------------
+
+If backend responds that email is not verified:
+
+HTTP 403
+message:
+"Please verify your email before logging in"
+
+Do not display a generic login failure.
+
+Instead:
+
+1. Preserve the entered email.
+2. Change the primary button text from:
+
+"Continue"
+
+to:
+
+"Verify OTP"
+
+3. Explain that the account must be verified.
+4. Enable/open the OTP verification action.
+
+The UI should allow:
+
+Verify OTP
+→ open OTP modal
+
+The OTP modal should use the same email address.
+
+Before showing the OTP modal, call the resend OTP API if an active OTP is not known to exist.
+
+Do not repeatedly resend OTP automatically.
+
+Respect the backend OTP expiration/cooldown.
+
+After successful OTP verification:
+
+HTTP 200
+→ update authentication state
+→ navigate directly to the main application page.
+
+The OTP modal should close automatically after successful verification.
+
+Do not require the user to log in again after successful account verification if the backend has already authenticated them during verification.
+
+The current backend's verifySignupOtp marks emailVerified=true and returns the user, so the frontend should treat this as an authenticated success when the controller returns the authenticated response.
+
+==================================================
+OTP UI
+==================================================
+
+Create a reusable OTP modal/component.
+
+Suggested location:
+
+components/auth/OTPVerificationModal.tsx
+
+Responsibilities:
+
+- six digit inputs
+- auto-focus next digit
+- backspace navigation
+- paste six-digit OTP
+- numeric input only
+- verify button
+- resend button
+- countdown
+- loading state
+- backend error message
+- success state
+
+OTP validation:
+
+- must contain exactly 6 digits
+- disable verify until complete
+- use JetBrains Mono for digits
+
+Error messages should appear in the authentication error area using the SecureNet error treatment.
+
+Example:
+
+"Invalid or expired OTP"
+
+Do not expose backend stack traces.
+
+The existing OTP reference contains a timer and resend state, so preserve this interaction pattern. :contentReference[oaicite:8]{index=8} :contentReference[oaicite:9]{index=9}
+
+==================================================
+REGISTER FLOW
+==================================================
+
+Register page fields:
+
+Username
+Email
+Password
+Confirm Password
+
+Primary button:
+
+"Create Account"
+
+Validation:
+
+Username:
+- required
+- minimum 3 characters
+- maximum 30 characters
+- compatible with backend username rules
+
+Email:
+- required
+- valid email format
+
+Password:
+- required
+
+Confirm password:
+- must exactly match password
+
+--------------------------------------------------
+PASSWORD STRENGTH
+--------------------------------------------------
+
+During typing, show a password strength indicator.
+
+States:
+
+Weak
+Fair
+Good
+Strong
+Very Strong
+
+Use a progressive visual meter.
+
+Do not rely only on color.
+Also display text.
+
+Example:
+
+Password strength
+[██████░░░░]
+Strong
+
+The strength indicator is frontend UX only.
+The backend remains authoritative.
+
+Do not send password strength metadata to backend.
+
+Do not log password values.
+
+--------------------------------------------------
+PASSWORD VALIDATION
+--------------------------------------------------
+
+Show field-specific errors.
+
+Examples:
+
+Username already exists
+Invalid email
+Password too weak
+Passwords do not match
+
+Do not show server stack traces.
+
+--------------------------------------------------
+REGISTER SUBMIT
+--------------------------------------------------
+
+Call:
+
+auth.service.js
+→ registerUser({
+    userName,
+    emailId,
+    password
+})
+
+On success:
+
+Backend creates:
+emailVerified = false
+
+and generates signup OTP.
+
+Frontend opens:
+
+OTPVerificationModal
+
+with:
+
+registered email address
+
+Do NOT navigate to the application yet.
+
+OTP verification is mandatory.
+
+--------------------------------------------------
+REGISTER OTP SUCCESS
+--------------------------------------------------
+
+When OTP verification succeeds:
+
+Backend returns authenticated user data.
+
+Frontend should:
+
+1. store/update authenticated user
+2. mark auth state authenticated
+3. close modal
+4. navigate to main app page
+
+Expected flow:
+
+Register
+→ OTP
+→ verify
+→ authenticated
+→ main app
+
+Do NOT send the user back to login.
+
+==================================================
+RESEND OTP
+==================================================
+
+Use:
+
+auth.service.js
+→ resendOtp(emailId)
+
+The resend button must respect the countdown.
+
+Do not allow repeated spam requests while the timer is active.
+
+When timer reaches zero:
+
+"Send Again"
+
+becomes enabled.
+
+Restart countdown after successful resend.
+
+The attached OTP reference already establishes this interaction model. :contentReference[oaicite:10]{index=10}
+
+==================================================
+FORGOT PASSWORD
+==================================================
+
+Use a tabbed authentication recovery experience.
+
+Reference:
+Animate UI Tabs
+
+https://animate-ui.com/docs/components/animate/tabs
+
+Use:
+
+Tabs
+TabsList
+TabsTrigger
+TabsContent
+
+Tabs may represent:
+
+"Forgot Password"
+"Reset Password"
+
+However, Reset Password should remain inaccessible/disabled until a valid reset flow has been established.
+
+--------------------------------------------------
+FORGOT PASSWORD TAB
+--------------------------------------------------
+
+Fields:
+
+Email
+
+Button:
+
+"Send Reset Link"
+
+Call:
+
+auth.service.js
+→ forgotPassword(emailId)
+
+Backend sends a password reset token by email.
+
+Never display the token in the frontend unless explicitly included in a development-only environment.
+
+Use a neutral response:
+
+"If an account exists, a reset link has been sent to your email."
+
+Do not reveal whether an email exists.
+
+--------------------------------------------------
+RESET PASSWORD FLOW
+--------------------------------------------------
+
+The reset email should open the frontend reset route.
+
+Expected route:
+
+/reset-password
+
+The email URL should provide:
+
+emailId
+token
+
+through query parameters or an equivalent secure reset-link mechanism.
+
+Example:
+
+/reset-password?emailId=...&token=...
+
+DO NOT put the token into:
+- localStorage
+- sessionStorage
+- application context
+- logs
+- analytics
+- UI text
+
+Keep the token only in the transient reset-flow state.
+
+--------------------------------------------------
+RESET TOKEN VALIDATION
+--------------------------------------------------
+
+The desired UX is:
+
+User clicks email link
+→ frontend reads reset token
+→ frontend validates token with backend
+→ token valid
+→ reveal New Password + Confirm Password
+→ user submits
+→ password reset
+→ navigate to login
+
+If the backend currently has no dedicated endpoint to validate a reset token without changing the password, identify this as a REQUIRED backend addition.
+
+Do NOT fake token validation on the client.
+
+Do NOT treat the token as valid merely because it exists in the URL.
+
+A proper backend endpoint should conceptually be:
+
+POST /auth/reset-password/validate
+
+Body:
+{
+    emailId,
+    token
+}
+
+Response:
+{
+    valid: true
+}
+
+The current backend service already validates the token when resetPassword() is called, but it does not currently expose a separate pre-validation operation. If this endpoint is not implemented, clearly mark it as a backend dependency rather than inventing client-side validation.
+
+The current resetPassword service validates:
+emailId
+reset_token hash
+reset_token_expiry
+before changing the password. :contentReference[oaicite:11]{index=11}
+
+==================================================
+RESET PASSWORD FORM
+==================================================
+
+Only display after reset token validation succeeds.
+
+Fields:
+
+New Password
+Confirm Password
+
+Reuse the same password strength component from registration.
+
+Rules:
+
+- password required
+- strength indicator
+- confirmation required
+- passwords must match
+
+Button:
+
+"Reset Password"
+
+Call:
+
+auth.service.js
+→ resetPassword({
+    emailId,
+    token,
+    newPassword
+})
+
+On success:
+
+1. Show success confirmation
+2. Clear reset-flow state
+3. Navigate to login
+4. Do not automatically authenticate
+5. Tell user they can now sign in
+
+The backend resets failed-login counters and increments token_version when the password changes, invalidating existing JWTs. :contentReference[oaicite:12]{index=12}
+
+==================================================
+LOGIN LOCKOUT UX
+==================================================
+
+The frontend must respect backend lockout responses.
+
+Backend states include:
+
+Normal invalid credentials:
+401
+
+Temporarily locked:
+423
+
+Blocked:
+403
+
+Unverified:
+403 with:
+"Please verify your email before logging in"
+
+Do not replace backend messages with generic messages when a meaningful security state is known.
+
+--------------------------------------------------
+TEMPORARY LOCK
+--------------------------------------------------
+
+When HTTP 423 is returned:
+
+Display an obvious but calm error message in red.
+
+Example:
+
+"Account temporarily locked. Try again in 1 minute."
+
+Do not keep submitting automatically.
+
+Disable login submission while the returned lock period is active if the backend provides sufficient information.
+
+Do not create a fake client-side lockout policy that conflicts with the backend.
+
+The backend is authoritative.
+
+--------------------------------------------------
+ESCALATED LOCK
+--------------------------------------------------
+
+After repeated failed attempts, the backend escalates the lockout to 2 days and creates a password reset token. :contentReference[oaicite:13]{index=13}
+
+Frontend should present a security-focused message:
+
+"Your account has been temporarily locked. Please reset your password to regain access."
+
+If backend provides the reset-link path, allow the user to continue into password recovery.
+
+Do not expose internal:
+lockout_level
+failed_login_attempts
+database fields
+
+--------------------------------------------------
+BLOCKED ACCOUNT
+--------------------------------------------------
+
+If backend returns:
+
+"Account is blocked"
+
+Display:
+
+"Your account has been blocked. Please contact the system administrator."
+
+Do not expose database/security implementation details.
+
+==================================================
+AUTHENTICATION CONTEXT
+==================================================
+
+Use the existing:
+
+context/
+
+Create/use:
+
+AuthContext
+
+It should track:
+
+user
+isAuthenticated
+isLoading
+initializing
+
+Optional:
+
+authError
+
+Do not store:
+
+password
+OTP
+shared chat secret
+reset token permanently
+
+The JWT remains handled according to the existing backend authentication mechanism.
+
+The authentication context should only represent account/session state.
+
+==================================================
+AUTH ROUTING
+==================================================
+
+Create protected and public route separation.
+
+Public:
+
+/login
+/register
+/forgot-password
+/reset-password
+
+Protected:
+
+/app/*
+or
+/dashboard/*
+
+If unauthenticated:
+→ redirect protected route to /login
+
+If authenticated:
+→ prevent unnecessary access to /login and /register
+→ redirect to main app
+
+OTP verification is part of the authentication flow.
+
+==================================================
+AUTH SERVICE USAGE
+==================================================
+
+Do not place raw API calls inside UI components.
+
+Use:
+
+client/src/services/auth.service.js
+
+The service layer should expose functions such as:
+
+registerUser()
+verifyOTP()
+resendOTP()
+loginUser()
+forgotPassword()
+resetPassword()
+validateResetToken()     // only if backend endpoint exists
+
+Keep all HTTP request logic in the service.
+
+Components should only manage:
+- UI state
+- form state
+- loading state
+- navigation
+- user interaction
+
+==================================================
+ERROR HANDLING
+==================================================
+
+Create consistent frontend error handling.
+
+HTTP 400:
+validation/input error
+
+HTTP 401:
+invalid credentials/token
+
+HTTP 403:
+unverified account or blocked account
+
+HTTP 409:
+duplicate account data
+
+HTTP 423:
+account locked
+
+HTTP 500:
+generic server error
+
+Do not expose:
+stack
+database errors
+internal implementation details
+
+Show errors near the relevant form.
+
+Use red text and subtle border/background emphasis.
+
+Do not use alert().
+
+==================================================
+LOADING STATES
+==================================================
+
+Every network operation must have a loading state.
+
+Examples:
+
+Login:
+"Signing in..."
+
+Register:
+"Creating account..."
+
+OTP:
+"Verifying..."
+
+Resend:
+"Sending..."
+
+Forgot password:
+"Sending reset link..."
+
+Reset:
+"Updating password..."
+
+Disable duplicate submissions.
+
+==================================================
+SECURITY REQUIREMENTS
+==================================================
+
+NEVER:
+
+console.log(password)
+console.log(otp)
+console.log(resetToken)
+console.log(secret)
+
+Do not store passwords.
+
+Do not store OTP values.
+
+Do not store reset tokens in persistent browser storage.
+
+Do not put sensitive values into URLs except the unavoidable password-reset token already supplied through the password-reset email flow.
+
+Do not expose server stack traces.
+
+Do not send passwords to any endpoint other than the intended authentication/reset endpoint.
+
+Do not place password values in React global context.
+
+==================================================
+ACCESSIBILITY
+==================================================
+
+Every input must have a Label.
+
+Password visibility buttons need:
+aria-label
+aria-pressed
+
+OTP fields:
+- keyboard accessible
+- automatic focus
+- backspace navigation
+- paste support
+- screen-reader friendly labels
+
+Errors:
+use accessible error association where practical.
+
+Modal:
+focus should move into OTP input when opened.
+
+==================================================
+RESPONSIVE BEHAVIOR
+==================================================
+
+The authentication card should remain centered.
+
+Desktop:
+compact centered authentication panel.
+
+Mobile:
+full-width padded authentication surface.
+
+OTP modal:
+responsive width.
+
+Do not redesign the authentication visual concept between desktop and mobile.
+
+==================================================
+FILES TO CREATE/UPDATE
+==================================================
+
+Suggested:
+
+src/pages/auth/Login.tsx
+src/pages/auth/Register.tsx
+src/pages/auth/ForgotPassword.tsx
+src/pages/auth/ResetPassword.tsx
+
+src/components/auth/OTPVerificationModal.tsx
+src/components/auth/PasswordStrength.tsx
+
+src/context/AuthContext.tsx
+
+src/hooks/useAuth.ts
+src/hooks/usePasswordStrength.ts
+
+src/services/auth.service.js
+
+src/routes/auth.routes.tsx
+src/routes/protected.routes.tsx
+
+Use existing project conventions if equivalent files already exist.
+
+Do not duplicate authentication state.
+
+==================================================
+FINAL AUTH FLOW
+==================================================
+
+REGISTER:
+
+Register
+ ↓
+Validate fields
+ ↓
+Password strength
+ ↓
+POST /auth/register
+ ↓
+Account created
+ ↓
+OTP modal
+ ↓
+6-digit OTP
+ ↓
+POST /auth/verify-otp
+ ↓
+HTTP 200
+ ↓
+authenticated state
+ ↓
+main application
+
+
+LOGIN:
+
+Login
+ ↓
+POST /auth/login
+ ↓
+SUCCESS
+ ↓
+main application
+
+
+UNVERIFIED LOGIN:
+
+Login
+ ↓
+POST /auth/login
+ ↓
+403 unverified
+ ↓
+button becomes "Verify OTP"
+ ↓
+send/resend OTP
+ ↓
+OTP modal
+ ↓
+6-digit OTP
+ ↓
+verify
+ ↓
+authenticated
+ ↓
+main application
+
+
+FORGOT PASSWORD:
+
+Login
+ ↓
+Forgot password
+ ↓
+Forgot Password tab
+ ↓
+enter email
+ ↓
+send reset link
+ ↓
+email received
+ ↓
+click reset link
+ ↓
+/reset-password?emailId=...&token=...
+ ↓
+backend token validation
+ ↓
+valid
+ ↓
+Reset Password form
+ ↓
+new password + confirm
+ ↓
+POST reset password
+ ↓
+success
+ ↓
+login
+
+
+LOCKOUT:
+
+Login
+ ↓
+wrong password
+ ↓
+backend controls attempts
+ ↓
+401 / 423 / 403
+ ↓
+frontend displays corresponding security state
+ ↓
+do not override backend authority
+
+
+==================================================
+VISUAL INTERACTION LANGUAGE
+==================================================
+
+Maintain the SecureNet grayscale design.
+
+Authentication:
+light/white surface
+
+Form:
+clean white/light-gray
+
+Primary action:
+#2B2B2B
+
+Focus:
+clear grayscale contrast
+
+Error:
+red text/border only
+
+Locked:
+#111111 / dark high-contrast state
+
+OTP:
+large centered digits using JetBrains Mono
+
+Password strength:
+simple segmented progress indicator
+
+Do not introduce neon colors or blue/purple gradients.
+
+==================================================
+IMPORTANT BACKEND DEPENDENCIES
+==================================================
+
+Before considering this complete, verify these backend capabilities:
+
+1. Registration endpoint
+2. Verify signup OTP endpoint
+3. Resend signup OTP endpoint
+4. Login endpoint
+5. Forgot-password endpoint
+6. Reset-password endpoint
+7. Dedicated reset-token validation endpoint if the frontend must validate the token BEFORE displaying the reset form
+
+If #7 does not exist:
+DO NOT fake it.
+
+Clearly report:
+
+"Backend addition required:
+POST /auth/reset-password/validate"
+
+The existing backend resetPassword() already validates the token during the final reset operation, but the current service does not provide a separate validation-only operation. :contentReference[oaicite:14]{index=14}
+
+==================================================
+FINAL QUALITY CHECK
+==================================================
+
+After implementation verify these scenarios manually:
+
+1. Register valid account
+2. Register duplicate username
+3. Register duplicate email
+4. Register weak password
+5. Register mismatched password
+6. Register → OTP modal
+7. Invalid OTP
+8. Expired OTP
+9. Resend OTP
+10. Successful OTP → main app
+11. Login verified account
+12. Login unverified account
+13. Unverified → Verify OTP
+14. Wrong password
+15. Third failed password
+16. Temporary lock
+17. Escalated lock
+18. Blocked account
+19. Forgot password
+20. Reset link with valid token
+21. Reset link with invalid token
+22. Expired reset token
+23. Password reset success
+24. Old JWT invalidated after password reset
+25. Refresh protected page while authenticated
+26. Attempt protected route while unauthenticated
+
+Do not consider the task complete until these flows behave consistently with the backend responses.

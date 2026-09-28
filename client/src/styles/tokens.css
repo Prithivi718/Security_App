@@ -1,0 +1,50 @@
+/* Salt & Pepper Visual Design Tokens */
+
+:root {
+    /* Salt & Pepper Palette */
+    --color-white: #FFFFFF;
+    --color-light-gray: #D4D4D4;
+    --color-mid-gray: #B3B3B3;
+    --color-charcoal: #2B2B2B;
+    --color-black: #111111;
+
+    /* Semantic UI Colors */
+    --bg-primary: #FFFFFF;
+    --bg-surface: #FFFFFF;
+    --bg-subtle: #F7F7F7;
+    --bg-charcoal: #2B2B2B;
+    --bg-black: #111111;
+
+    /* Typography Colors */
+    --text-primary: #111111;
+    --text-secondary: #666666;
+    --text-muted: #888888;
+    --text-on-dark: #FFFFFF;
+
+    /* Borders & Dividers */
+    --border-color: #D4D4D4;
+    --border-subtle: #E5E5E5;
+    --border-strong: #2B2B2B;
+
+    /* Typography Font Stacks */
+    --font-sans: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Consolas, monospace;
+
+    /* Radius & Transitions */
+    --radius-sm: 4px;
+    --radius-md: 6px;
+    --radius-lg: 8px;
+    --transition-fast: 150ms ease;
+    --transition-normal: 250ms ease;
+
+    /* ── Sidebar tokens (shadcn/animate-ui sidebar) ─────────────────────── */
+    /* Mapped to SecureNet Salt & Pepper grayscale palette                   */
+    --sidebar: #FFFFFF;
+    --sidebar-foreground: #111111;
+    --sidebar-primary: #111111;
+    --sidebar-primary-foreground: #FFFFFF;
+    --sidebar-accent: #D4D4D4;
+    --sidebar-accent-foreground: #111111;
+    --sidebar-border: #D4D4D4;
+    --sidebar-ring: #2B2B2B;
+}

@@ -1,9 +1,9 @@
 import api from "./api.js";
-import { getConversationKey, hasConversationKey } from "./crypto/key.service.js";
+import { getConversationKey } from "./crypto/key.service.js";
 import { encryptAESGCM, decryptAESGCM } from "./crypto/aesGcm.service.js";
 
 /**
- * Message Service - Encrypted Message API & Local AES-256-GCM Processing
+ * Message Service - Encrypted Message API & Local Web Crypto AES-256-GCM Processing
  */
 
 /**
@@ -14,7 +14,7 @@ const constructAAD = (type, targetId, keyVersion = 1) => {
 };
 
 /**
- * Encrypts plaintext locally and POSTs ciphertext payload to server
+ * Encrypts plaintext locally using Web Crypto AES-GCM and POSTs ciphertext payload to server
  * 
  * @param {Object} params
  * @param {string} [params.friendshipId]
@@ -53,8 +53,8 @@ export const sendMessage = async ({
     // Construct deterministic AAD
     const aad = constructAAD(type, targetId, keyVersion);
 
-    // Encrypt message locally
-    const encrypted = encryptAESGCM({
+    // Encrypt message locally using Web Crypto API
+    const encrypted = await encryptAESGCM({
         message: messageText,
         sessionKey,
         aad
@@ -72,11 +72,11 @@ export const sendMessage = async ({
         messageType
     };
 
-    return api.post("/messages", payload);
+    return api.post("/message", payload);
 };
 
 /**
- * GETs encrypted messages from server and decrypts them locally using volatile CryptoKey
+ * GETs encrypted messages from server and decrypts them locally using volatile CryptoKey via Web Crypto API
  * 
  * @param {Object} params
  * @param {string} [params.friendshipId]
@@ -109,29 +109,31 @@ export const getMessages = async ({
     queryParams.append("page", page);
     queryParams.append("limit", limit);
 
-    const response = await api.get(`/messages?${queryParams.toString()}`);
+    const response = await api.get(`/message?${queryParams.toString()}`);
 
     const messages = Array.isArray(response) ? response : (response.messages || []);
 
-    // Decrypt messages locally
-    const decryptedMessages = messages.map((msg) => {
-        const keyVer = msg.keyVersion || 1;
-        const aad = constructAAD(type, targetId, keyVer);
+    // Decrypt messages locally using Web Crypto API
+    const decryptedMessages = await Promise.all(
+        messages.map(async (msg) => {
+            const keyVer = msg.keyVersion || 1;
+            const aad = constructAAD(type, targetId, keyVer);
 
-        const result = decryptAESGCM({
-            ciphertext: msg.ciphertext,
-            sessionKey,
-            iv: msg.nonce || msg.iv,
-            authTag: msg.authTag,
-            aad
-        });
+            const result = await decryptAESGCM({
+                ciphertext: msg.ciphertext,
+                sessionKey,
+                iv: msg.nonce || msg.iv,
+                authTag: msg.authTag,
+                aad
+            });
 
-        return {
-            ...msg,
-            plaintext: result.success ? result.plaintext : null,
-            decryptionError: result.success ? null : (result.error || "Decryption failed")
-        };
-    });
+            return {
+                ...msg,
+                plaintext: result.success ? result.plaintext : null,
+                decryptionError: result.success ? null : (result.error || "Unable to decrypt this message.")
+            };
+        })
+    );
 
     if (Array.isArray(response)) {
         return decryptedMessages;
@@ -143,7 +145,15 @@ export const getMessages = async ({
     };
 };
 
+/**
+ * Fetches all active friends and group contacts for chat sidebar
+ */
+export const getChatContacts = async () => {
+    return api.get("/message/contacts");
+};
+
 export default {
     sendMessage,
-    getMessages
+    getMessages,
+    getChatContacts
 };

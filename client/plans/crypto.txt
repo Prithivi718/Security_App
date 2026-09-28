@@ -1,0 +1,1240 @@
+You are implementing the CLIENT-SIDE CRYPTOGRAPHIC ENGINE for SecureNet.
+
+THIS IS THE MOST SECURITY-CRITICAL PART OF THE APPLICATION.
+
+Do not rush into coding.
+First inspect the existing client/src/services/, chatSession service, message service, key service, API service, backend Message model, Friendship model, Group model, and existing session implementation.
+
+Do not redesign the backend architecture.
+Do not move cryptography into React components.
+Do not create UI.
+Do not create frontend styling.
+
+The goal is to implement the complete CLIENT-SIDE:
+
+Shared Secret
+→ HKDF
+→ AES-256-GCM
+→ encrypted message transport
+
+and:
+
+ciphertext + nonce + authTag
+→ AES-256-GCM
+→ plaintext
+
+==================================================
+CORE SECURITY BOUNDARY
+==================================================
+
+SERVER RESPONSIBILITIES:
+
+- User authentication through JWT
+- Friendship/group authorization
+- Shared-secret authentication/verification
+- ChatSession creation
+- ChatSession expiration/revocation
+- Return required PUBLIC KDF parameters
+- Store ciphertext
+- Return ciphertext
+- Store message metadata
+
+SERVER MUST NEVER:
+
+- receive plaintext message content
+- encrypt message plaintext
+- decrypt message plaintext
+- store plaintext messages
+- store the AES conversation key
+- store the HKDF-derived AES key
+- return the AES key
+- log shared secrets
+- log plaintext
+- log derived keys
+
+CLIENT RESPONSIBILITIES:
+
+- Receive the user's shared secret
+- Use it for the secure-chat unlock request
+- Keep the shared secret only in volatile runtime memory as needed
+- Derive encryption key locally
+- Encrypt plaintext locally
+- Generate a fresh AES-GCM nonce for every message
+- Send ciphertext + nonce + authTag + metadata
+- Fetch encrypted messages
+- Derive the correct local key
+- Decrypt locally
+- Display plaintext only in client memory/UI state
+- Clear sensitive runtime key material when chat session ends
+
+==================================================
+VERY IMPORTANT CRYPTOGRAPHIC SEPARATION
+==================================================
+
+There are THREE separate cryptographic concepts:
+
+1. ARGON2ID
+   Purpose:
+   Verify that the supplied shared secret is correct.
+
+2. HKDF
+   Purpose:
+   Derive deterministic cryptographic key material from the shared secret and the conversation's KDF parameters.
+
+3. AES-256-GCM
+   Purpose:
+   Encrypt and decrypt message content and authenticate ciphertext integrity.
+
+NEVER use the Argon2 verifier itself as the AES key.
+
+NEVER return secretVerifier to the client as an encryption key.
+
+NEVER treat an Argon2 verifier as a substitute for HKDF.
+
+==================================================
+IMPORTANT LOW-ENTROPY WARNING
+==================================================
+
+The shared secret may be human-memorable.
+
+HKDF is NOT a password-hardening function.
+
+Therefore:
+
+DO NOT claim that:
+
+human word
+→ HKDF
+→ automatically strong AES key
+
+is equivalent to password-strengthening.
+
+The implementation must clearly document that the shared secret should be sufficiently high-entropy for the cryptographic design.
+
+If the current product requirements insist on a short/common human word, explicitly flag that as a cryptographic limitation rather than silently pretending HKDF solves password guessing.
+
+Do not silently replace the architecture with a different password protocol.
+
+==================================================
+PUBLIC KDF PARAMETERS
+==================================================
+
+Each friendship/group must have stable KDF parameters.
+
+Expected data:
+
+kdfSalt
+kdf.info
+keyVersion
+cryptoVersion
+
+kdfSalt:
+
+- cryptographically random
+- 16 bytes minimum for our protocol
+- generated when the friendship/group shared secret is established
+- stored as Base64
+- NOT regenerated every chat unlock
+- NOT generated for every message
+- NOT secret
+- may be returned to an authenticated participant
+
+secretSalt:
+
+- belongs to Argon2id verification
+- separate from kdfSalt
+- never substitute secretSalt for kdfSalt
+
+The distinction is mandatory:
+
+secretSalt
+→ Argon2id verification
+
+kdfSalt
+→ HKDF key derivation
+
+==================================================
+KDF SALT LIFECYCLE
+==================================================
+
+When shared secret is first established:
+
+if (!friendship.kdfSalt) {
+    generate 16 random bytes
+    encode as Base64
+    persist
+}
+
+Do NOT do:
+
+unlock chat
+→ generate new kdfSalt
+
+Do NOT do:
+
+every message
+→ generate new kdfSalt
+
+The same friendship/group keyVersion must use the same KDF salt until an intentional cryptographic key rotation occurs.
+
+==================================================
+HKDF PROTOCOL
+==================================================
+
+Implement HKDF using the browser Web Crypto API.
+
+Use:
+
+window.crypto.subtle
+
+Do NOT implement homemade HKDF.
+Do NOT manually reproduce HMAC unless absolutely required by browser compatibility.
+Prefer native Web Crypto.
+
+Hash:
+
+SHA-256
+
+IKM:
+
+the shared secret provided by the user.
+
+HKDF salt:
+
+the decoded kdfSalt returned by the backend.
+
+HKDF info:
+
+a deterministic protocol context.
+
+Initial protocol value:
+
+SecureNet/chat/v1
+
+For groups use a deterministic group context while maintaining the same protocol format.
+
+Example concept:
+
+SecureNet/chat/v1
+SecureNet/group/v1
+
+Do not include the plaintext message in HKDF info.
+
+Do not include the shared secret in HKDF info.
+
+Do not include a randomly generated value that changes between Alice and Bob.
+
+==================================================
+CONVERSATION KEY DERIVATION
+==================================================
+
+Create:
+
+client/src/services/crypto/hkdf.service.js
+
+Responsibilities:
+
+deriveConversationKey({
+    sharedSecret,
+    kdfSalt,
+    info,
+    keyVersion
+})
+
+Process:
+
+sharedSecret
+    ↓
+UTF-8 encoded bytes
+    ↓
+HKDF input key material
+    ↓
+HKDF-SHA-256
+    ↓
+256-bit derived key
+    ↓
+AES-GCM CryptoKey
+
+The resulting CryptoKey must be non-extractable if possible.
+
+Use Web Crypto CryptoKey rather than exposing raw AES key bytes.
+
+Do not return raw AES key material to components.
+
+==================================================
+KEY CONTEXT / DOMAIN SEPARATION
+==================================================
+
+Do not use one generic HKDF info string for every future cryptographic purpose.
+
+Use explicit purpose-bound info.
+
+Initial chat context:
+
+SecureNet/chat/v1
+
+The implementation should be structured so it can later distinguish:
+
+chat encryption
+session-related material
+future attachment encryption
+future key rotation
+
+Do not reuse one derived key for unrelated cryptographic purposes.
+
+==================================================
+KEY SERVICE
+==================================================
+
+Create or update:
+
+client/src/services/crypto/key.service.js
+
+This service owns volatile conversation CryptoKeys.
+
+Suggested runtime structure:
+
+Map<conversationId, ConversationCryptoState>
+
+ConversationCryptoState may contain:
+
+sessionId
+expiresAt
+keyVersion
+cryptoVersion
+cryptoKey
+
+DO NOT put CryptoKey into:
+
+localStorage
+sessionStorage
+IndexedDB
+cookies
+URLs
+JWT
+Redux persistence
+backend database
+
+The raw shared secret must not be persisted.
+
+The key service must expose conceptually:
+
+storeConversationKey()
+getConversationKey()
+hasConversationKey()
+clearConversationKey()
+clearAllConversationKeys()
+
+The key cache must be scoped by conversation.
+
+Use:
+
+friendship:<friendshipId>
+
+or:
+
+group:<groupId>
+
+Never use a global single key.
+
+==================================================
+CHAT SESSION INTEGRATION
+==================================================
+
+The user first unlocks a conversation.
+
+Flow:
+
+User selects friendship/group
+    ↓
+Check active local session
+    ↓
+No active session
+    ↓
+Show unlock UI
+    ↓
+User enters shared secret
+    ↓
+Call backend unlock API
+    ↓
+Backend verifies secret using Argon2id
+    ↓
+Backend creates 10-minute ChatSession
+    ↓
+Backend returns:
+
+{
+    sessionId,
+    expiresAt,
+    kdf: {
+        salt,
+        info
+    },
+    keyVersion,
+    cryptoVersion
+}
+
+The backend response must NOT contain:
+
+secret
+secretVerifier
+secretSalt
+AES key
+raw derived key
+
+Client then:
+
+sharedSecret
++
+kdf.salt
++
+kdf.info
++
+keyVersion
+    ↓
+HKDF
+    ↓
+AES CryptoKey
+    ↓
+store only in volatile key service
+    ↓
+conversation unlocked
+
+==================================================
+SESSION / KEY RELATIONSHIP
+==================================================
+
+ChatSession is authorization state.
+
+CryptoKey is cryptographic state.
+
+Do not confuse them.
+
+ChatSession:
+
+"this user is authorized to access this conversation for 10 minutes"
+
+CryptoKey:
+
+"this client can cryptographically decrypt/encrypt this conversation's messages"
+
+When session expires:
+
+- clear CryptoKey
+- clear shared secret from volatile state
+- mark conversation locked
+- prevent encrypt
+- prevent decrypt
+- show unlock UI
+
+The encrypted messages remain in backend storage.
+
+==================================================
+AES-GCM SERVICE
+==================================================
+
+Create:
+
+client/src/services/crypto/aesGcm.service.js
+
+Use:
+
+window.crypto.subtle
+
+Algorithm:
+
+AES-GCM
+
+Key length:
+
+256 bits
+
+Nonce/IV:
+
+12 bytes / 96 bits
+
+Generate a NEW random nonce for EVERY message.
+
+Use:
+
+crypto.getRandomValues()
+
+NEVER:
+
+- increment nonce manually
+- derive nonce from message ID
+- derive nonce from timestamp
+- use session counter as nonce
+- reset a nonce counter
+- reuse a nonce
+- reuse one nonce for an entire conversation
+
+The correct concept is:
+
+Conversation Key V1
+    │
+    ├── Message 1 → random nonce A
+    ├── Message 2 → random nonce B
+    ├── Message 3 → random nonce C
+    └── Message 4 → random nonce D
+
+Same conversation key.
+
+Unique nonce for every AES-GCM encryption.
+
+==================================================
+AES-GCM ENCRYPTION
+==================================================
+
+Expose:
+
+encryptAESGCM({
+    message,
+    cryptoKey,
+    aad
+})
+
+Process:
+
+plaintext
+    ↓
+UTF-8 encode
+    ↓
+generate 12-byte random nonce
+    ↓
+AES-256-GCM
+    ↓
+ciphertext + authentication tag
+
+Return a consistent structure:
+
+{
+    ciphertext,
+    nonce,
+    authTag
+}
+
+Use one consistent encoding for API transport.
+
+Preferred:
+
+Base64
+
+Do NOT mix hexadecimal and Base64 without a deliberate conversion layer.
+
+==================================================
+AES-GCM AUTHENTICATION TAG
+==================================================
+
+The authentication tag MUST be verified during decryption.
+
+Do not ignore authentication failure.
+
+If ciphertext, nonce, key, or AAD is incorrect:
+
+decrypt operation must fail.
+
+Do NOT return partial plaintext.
+
+Do NOT display decrypted content after authentication failure.
+
+Return a controlled crypto error such as:
+
+{
+    success: false,
+    error: "Message authentication failed"
+}
+
+Do not expose unnecessary cryptographic internals.
+
+==================================================
+AAD
+==================================================
+
+Use AES-GCM Additional Authenticated Data.
+
+Create deterministic AAD based on non-secret message context.
+
+Use the exact same AAD during encryption and decryption.
+
+Example:
+
+SecureNet|friendship|<friendshipId>|v1|key1
+
+or:
+
+SecureNet|group|<groupId>|v1|key1
+
+The format must be deterministic and documented.
+
+AAD MUST NOT contain:
+
+- plaintext
+- shared secret
+- AES key
+
+The same message context must produce identical AAD on Alice and Bob clients.
+
+If the AAD differs, decryption must fail.
+
+==================================================
+MESSAGE ENCRYPTION FLOW
+==================================================
+
+When Alice sends:
+
+"Move to checkpoint A07"
+
+the plaintext exists only inside Alice's client memory.
+
+Flow:
+
+plaintext
+    ↓
+obtain conversation CryptoKey
+    ↓
+construct deterministic AAD
+    ↓
+generate unique 12-byte nonce
+    ↓
+AES-256-GCM encryption
+    ↓
+ciphertext
+nonce
+authTag
+    ↓
+POST /messages
+
+Backend must receive ONLY encrypted payload + metadata.
+
+Never send:
+
+messageText
+plaintext
+sharedSecret
+AES key
+
+==================================================
+MESSAGE API PAYLOAD
+==================================================
+
+Send conceptually:
+
+{
+    friendshipId OR groupId,
+    ciphertext,
+    nonce,
+    authTag,
+    keyVersion,
+    cryptoVersion,
+    messageType
+}
+
+senderId should be determined by the authenticated backend identity where possible.
+
+Do not trust arbitrary senderId supplied by the client.
+
+==================================================
+MESSAGE DECRYPTION FLOW
+==================================================
+
+When Bob retrieves messages:
+
+GET encrypted messages
+
+Backend returns:
+
+{
+    _id,
+    friendshipId OR groupId,
+    senderId,
+    ciphertext,
+    nonce,
+    authTag,
+    keyVersion,
+    cryptoVersion,
+    messageType,
+    createdAt
+}
+
+Client:
+
+message.keyVersion
+    ↓
+determine correct key version
+    ↓
+get correct volatile CryptoKey
+    ↓
+construct exact same AAD
+    ↓
+AES-256-GCM decrypt
+    ↓
+authentication tag verification
+    ↓
+plaintext
+    ↓
+UI state only
+
+Do not send decrypted plaintext back to backend.
+
+==================================================
+KEY VERSION
+==================================================
+
+Initial:
+
+keyVersion = 1
+
+Every message stores its keyVersion.
+
+The client must use message.keyVersion when selecting the conversation key.
+
+Do not assume every historical message will forever use the latest key.
+
+Structure the code so future:
+
+keyVersion 2
+keyVersion 3
+...
+
+can be supported.
+
+Do not implement key rotation yet unless explicitly requested.
+
+==================================================
+CRYPTO VERSION
+==================================================
+
+Initial:
+
+cryptoVersion = 1
+
+Version 1 protocol:
+
+HKDF-SHA-256
++
+AES-256-GCM
++
+12-byte random nonce
++
+defined AAD format
+
+If cryptoVersion changes later, the decryptor must be able to select the appropriate protocol implementation.
+
+Do not silently decrypt version 2 using version 1 rules.
+
+==================================================
+ENCODING SERVICE
+==================================================
+
+Create:
+
+client/src/services/crypto/encoding.service.js
+
+Provide consistent helpers:
+
+bytesToBase64()
+base64ToBytes()
+textToBytes()
+bytesToText()
+
+Use these helpers everywhere.
+
+Do not duplicate Base64 implementation inside AES or message services.
+
+Validate malformed Base64 before crypto operations.
+
+==================================================
+MESSAGE SERVICE
+==================================================
+
+Keep:
+
+client/src/services/message.service.js
+
+as the orchestration layer.
+
+Responsibilities:
+
+sendMessage()
+getMessages()
+
+sendMessage():
+
+1. Validate friendshipId OR groupId.
+2. Determine conversationId.
+3. Check active conversation CryptoKey.
+4. Reject if locked.
+5. Construct AAD.
+6. Encrypt locally.
+7. Send encrypted payload to backend.
+8. Never send plaintext.
+
+getMessages():
+
+1. Validate conversation identifier.
+2. Check active conversation session/key.
+3. Retrieve encrypted messages.
+4. For each message:
+    - select correct keyVersion
+    - construct AAD
+    - decrypt locally
+5. Return decrypted data to UI state.
+6. Never send plaintext back to backend.
+
+Do not place cryptographic primitives directly in message.service.js.
+Call hkdf.service.js / aesGcm.service.js / key.service.js.
+
+==================================================
+PLAINTEXT MEMORY RULE
+==================================================
+
+Typing a message necessarily creates plaintext in browser memory.
+
+That is acceptable.
+
+But do not persist plaintext.
+
+Never store plaintext in:
+
+localStorage
+sessionStorage
+IndexedDB
+cookies
+backend
+message DB
+chat session DB
+
+Do not log plaintext.
+
+After sending/decrypting where practical, release temporary references through normal application state lifecycle.
+
+==================================================
+SESSION EXPIRATION
+==================================================
+
+ChatSession expires after 10 minutes.
+
+Client must monitor expiresAt.
+
+At expiration:
+
+1. lock conversation
+2. clear CryptoKey from key service
+3. clear shared secret from runtime state
+4. invalidate local session state
+5. prevent new messages
+6. prevent decryption
+7. show unlock state
+
+Do not delete encrypted messages.
+
+Do not destroy conversation history.
+
+User must unlock again.
+
+==================================================
+MANUAL LOCK
+==================================================
+
+Support manual lock even before 10 minutes if useful.
+
+Manual lock:
+
+clear conversation CryptoKey
+clear secret runtime state
+mark conversation locked
+
+Do not delete server messages.
+
+==================================================
+CROSS-CONVERSATION ISOLATION
+==================================================
+
+This is mandatory.
+
+Alice's Bob key:
+
+friendship:<bobFriendshipId>
+
+must NOT unlock:
+
+friendship:<charlieFriendshipId>
+
+and must NOT unlock:
+
+group:<groupId>
+
+Every conversation has separate cryptographic context.
+
+Use conversationId as a strict key-cache namespace.
+
+==================================================
+NO "SAME KEY + SAME NONCE" ERROR
+==================================================
+
+The key may remain the same for multiple messages during keyVersion 1.
+
+The nonce MUST NOT.
+
+Correct:
+
+Key V1 + Nonce A → Message 1
+Key V1 + Nonce B → Message 2
+Key V1 + Nonce C → Message 3
+
+Incorrect:
+
+Key V1 + Nonce A → Message 1
+Key V1 + Nonce A → Message 2
+
+Do not implement a resettable nonce counter.
+
+Use cryptographically secure random 12-byte nonces for each message.
+
+==================================================
+NO SECRET RETURN FROM BACKEND
+==================================================
+
+The backend must NOT return:
+
+{
+    secretCode
+}
+
+or:
+
+{
+    secretVerifier
+}
+
+or:
+
+{
+    aesKey
+}
+
+The client already has the shared secret because the user entered it.
+
+The unlock response supplies:
+
+sessionId
+expiresAt
+kdf.salt
+kdf.info
+keyVersion
+cryptoVersion
+
+==================================================
+SECURE LOGGING
+==================================================
+
+Never log:
+
+- sharedSecret
+- password
+- OTP
+- reset token
+- plaintext messages
+- AES key
+- CryptoKey
+- raw HKDF output
+- nonce/authTag/ciphertext unless explicitly needed for controlled debug and never in production
+
+Safe logs may contain:
+
+- operation name
+- conversation ID
+- message ID
+- session ID
+- keyVersion
+- cryptoVersion
+- success/failure
+- timestamps
+
+==================================================
+ERROR HANDLING
+==================================================
+
+Handle separately:
+
+SESSION_LOCKED
+SESSION_EXPIRED
+KEY_NOT_AVAILABLE
+INVALID_KDF_PARAMETERS
+UNSUPPORTED_CRYPTO_VERSION
+UNSUPPORTED_KEY_VERSION
+ENCRYPTION_FAILED
+DECRYPTION_FAILED
+AUTHENTICATION_FAILED
+INVALID_CIPHERTEXT
+INVALID_NONCE
+INVALID_AUTH_TAG
+
+Do not convert every crypto error into a generic success/failure.
+
+Do not retry decryption indefinitely.
+
+==================================================
+FOLDER STRUCTURE
+==================================================
+
+Only work inside:
+
+client/src/
+
+Use:
+
+services/
+│
+├── api.js
+├── chatSession.service.js
+├── message.service.js
+├── friendship.service.js
+├── group.service.js
+│
+└── crypto/
+    ├── hkdf.service.js
+    ├── aesGcm.service.js
+    ├── key.service.js
+    └── encoding.service.js
+
+Add no unnecessary crypto files.
+
+Do not place crypto functions inside pages/components.
+
+==================================================
+INTEGRATION WITH EXISTING CLIENT
+==================================================
+
+Inspect the existing:
+
+message.service.js
+chatSession.service.js
+api.js
+key.service.js
+
+before modifying them.
+
+The existing message service already expects:
+getConversationKey()
+hasConversationKey()
+and performs local encryption/decryption before/after the `/messages` API. Preserve that architecture rather than creating duplicate message-processing logic. 
+
+Adapt existing functions rather than blindly creating competing implementations.
+
+==================================================
+BACKEND CONTRACT CHECK
+==================================================
+
+Before considering the frontend crypto implementation complete, verify the backend unlock response provides:
+
+sessionId
+expiresAt
+kdf.salt
+kdf.info
+keyVersion
+cryptoVersion
+
+Also verify Friendship/Group stores:
+
+secretVerifier
+secretSalt
+kdfSalt
+keyVersion
+cryptoVersion
+
+If kdfSalt is missing:
+DO NOT invent it in the client.
+
+Report:
+
+"Backend requirement: kdfSalt must be generated when the conversation secret is established and returned as a public KDF parameter during successful unlock."
+
+==================================================
+TESTING REQUIREMENTS
+==================================================
+
+Create or run deterministic crypto tests.
+
+Test 1:
+Same shared secret
++
+same kdfSalt
++
+same info
++
+same keyVersion
+=
+same derived key
+
+Test 2:
+Different kdfSalt
+=
+different derived key
+
+Test 3:
+Same key
++
+different random nonce
+=
+different ciphertext for identical plaintext
+
+Test 4:
+Correct key + nonce + authTag + AAD
+=
+successful decryption
+
+Test 5:
+Modified ciphertext
+=
+authentication failure
+
+Test 6:
+Modified authTag
+=
+authentication failure
+
+Test 7:
+Modified nonce
+=
+decryption failure
+
+Test 8:
+Wrong shared secret
+=
+different derived key / decryption failure
+
+Test 9:
+Wrong conversation AAD
+=
+authentication failure
+
+Test 10:
+Expired session
+=
+CryptoKey unavailable and decryption blocked
+
+Test 11:
+Bob friendship key
+≠
+Charlie friendship key
+
+Test 12:
+Group key context
+≠
+friendship key context
+
+Test 13:
+Every encrypted message gets a unique nonce.
+
+Test 14:
+No plaintext is sent in message API request.
+
+Test 15:
+No secret or key appears in logs.
+
+==================================================
+FINAL ACCEPTANCE CRITERIA
+==================================================
+
+The implementation is correct only when this exact sequence works:
+
+ALICE:
+
+Select Bob
+    ↓
+No active ChatSession
+    ↓
+Enter shared secret
+    ↓
+POST unlock request
+    ↓
+Backend validates Argon2id
+    ↓
+Backend returns:
+sessionId
+expiresAt
+kdf.salt
+kdf.info
+keyVersion
+cryptoVersion
+    ↓
+Client derives AES key through HKDF
+    ↓
+Store CryptoKey in volatile key service
+    ↓
+Chat unlocked
+    ↓
+Alice types plaintext
+    ↓
+Client AES-256-GCM encryption
+    ↓
+Fresh random 12-byte nonce
+    ↓
+ciphertext + nonce + authTag
+    ↓
+POST /messages
+    ↓
+Backend stores ciphertext only
+
+
+BOB:
+
+Select Bob
+    ↓
+Enter shared secret
+    ↓
+Backend validates
+    ↓
+Client derives same conversation key
+    ↓
+GET encrypted messages
+    ↓
+ciphertext + nonce + authTag
+    ↓
+Construct same AAD
+    ↓
+AES-256-GCM decryption
+    ↓
+Authentication succeeds
+    ↓
+Plaintext exists only in client memory
+    ↓
+Display message
+
+
+AFTER 10 MINUTES:
+
+ChatSession expires
+    ↓
+CryptoKey cleared
+    ↓
+Shared-secret runtime state cleared
+    ↓
+Conversation locked
+    ↓
+Background/chat becomes inaccessible
+    ↓
+Unlock required again
+
+Do not delete historical encrypted messages.
+
+==================================================
+IMPLEMENTATION DISCIPLINE
+==================================================
+
+Before writing code:
+
+1. Inspect the existing crypto files.
+2. Inspect current API response formats.
+3. Inspect current ChatSession implementation.
+4. Inspect current Message implementation.
+5. Identify mismatches.
+6. Explain any mismatch before changing architecture.
+7. Implement the smallest modular change.
+8. Do not duplicate services.
+9. Do not introduce a second encryption strategy.
+10. Do not make assumptions about missing cryptographic parameters.
+
+This implementation must prioritize cryptographic correctness over convenience.

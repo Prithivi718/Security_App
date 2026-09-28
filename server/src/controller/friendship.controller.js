@@ -3,6 +3,7 @@ import {
     acceptFriendRequest,
     getPendingFriendRequests,
     setSharedSecret,
+    resetSharedSecret,
     verifyFriendshipSecret,
 } from "../services/friendship.service.js";
 
@@ -304,6 +305,31 @@ export const verifyFriendshipSecretHandler = async (
             message:
                 err.message ||
                 "Internal server error",
+        });
+    }
+};
+
+export const resetSharedSecretHandler = async (req, res) => {
+    try {
+        const userId = req.user?._id || req.user?.id;
+        const { friendshipId } = req.params;
+
+        if (!userId) {
+            return res.status(401).json({
+                message: "Authentication required",
+            });
+        }
+
+        const friendship = await resetSharedSecret(friendshipId, userId);
+
+        return res.status(200).json({
+            message: "Shared secret reset successfully",
+            friendship: sanitizeFriendship(friendship),
+        });
+    } catch (err) {
+        logger.error("Reset shared secret error:", err);
+        return res.status(err.statusCode || 500).json({
+            message: err.message || "Internal server error",
         });
     }
 };

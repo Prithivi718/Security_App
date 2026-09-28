@@ -1,17 +1,24 @@
-import crypto from "node:crypto";
+import { stringToUint8Array, base64ToBytes } from "./encoding.service.js";
 
-const HASH_ALGORITHM = "sha512";
-const SESSION_KEY_LENGTH = 32; // 32 bytes = 256 bits for AES-256-GCM
+const getWebCrypto = () => {
+    if (typeof window !== "undefined" && window.crypto && window.crypto.subtle) {
+        return window.crypto;
+    }
+    if (typeof globalThis !== "undefined" && globalThis.crypto && globalThis.crypto.subtle) {
+        return globalThis.crypto;
+    }
+    throw new Error("Web Crypto API (crypto.subtle) is not available in this environment.");
+};
 
 /**
- * Derives an AES-256-GCM key using HKDF based on shared secret and conversation KDF salt
+ * Derives an AES-256-GCM CryptoKey using HKDF (SHA-256) via native Web Crypto API.
  * 
  * @param {Object} params
- * @param {string|Uint8Array|Buffer} params.sharedSecret Raw shared secret entered by user
- * @param {string|Uint8Array|Buffer} params.kdfSalt Base64 or raw public KDF salt from backend
- * @param {string} [params.info="SecureNet/chat/v1"] Protocol context info string
- * @param {number} [params.keyVersion=1] Key version
- * @returns {Promise<Uint8Array>} Derived 32-byte session key
+ * @param {string|Uint8Array} params.sharedSecret
+ * @param {string|Uint8Array} params.kdfSalt Base64 salt string returned by backend
+ * @param {string|Uint8Array} [params.info="SecureNet/chat/v1"]
+ * @param {number} [params.keyVersion=1]
+ * @returns {Promise<CryptoKey>} Derived 256-bit AES-GCM CryptoKey
  */
 export const deriveSessionKey = async ({
     sharedSecret,
@@ -28,80 +35,62 @@ export const deriveSessionKey = async ({
             throw new Error("kdfSalt is required for key derivation");
         }
 
-        const secretBuffer = Buffer.isBuffer(sharedSecret)
-            ? sharedSecret
-            : typeof sharedSecret === "string"
-                ? Buffer.from(sharedSecret, "utf8")
-                : Buffer.from(sharedSecret);
+        const crypto = getWebCrypto();
 
-        const saltBuffer = Buffer.isBuffer(kdfSalt)
-            ? kdfSalt
-            : typeof kdfSalt === "string"
-                ? Buffer.from(kdfSalt, "base64")
-                : Buffer.from(kdfSalt);
+        const secretBytes = typeof sharedSecret === "string"
+            ? stringToUint8Array(sharedSecret)
+            : (sharedSecret instanceof Uint8Array ? sharedSecret : new Uint8Array(sharedSecret));
 
-        const infoBuffer = Buffer.from(`${info}|v${keyVersion}`, "utf8");
+        const saltBytes = typeof kdfSalt === "string"
+            ? base64ToBytes(kdfSalt)
+            : (kdfSalt instanceof Uint8Array ? kdfSalt : new Uint8Array(kdfSalt));
 
-        return new Promise((resolve, reject) => {
-            crypto.hkdf(
-                HASH_ALGORITHM,
-                secretBuffer,
-                saltBuffer,
-                infoBuffer,
-                SESSION_KEY_LENGTH,
-                (err, derivedKey) => {
-                    if (err) {
-                        return reject(new Error(`HKDF Key Derivation failed: ${err.message}`));
-                    }
-                    resolve(new Uint8Array(derivedKey));
-                }
-            );
-        });
+        const infoBytes = typeof info === "string"
+            ? stringToUint8Array(info)
+            : (info instanceof Uint8Array ? info : new Uint8Array(info));
+
+        // 1. Import user-entered shared secret as HKDF base key
+        const baseKey = await crypto.subtle.importKey(
+            "raw",
+            secretBytes,
+            "HKDF",
+            false,
+            ["deriveBits"]
+        );
+
+        // 2. Derive 256 bits (32 bytes) using HKDF-SHA-256 with backend salt & info
+        const derivedBits = await crypto.subtle.deriveBits(
+            {
+                name: "HKDF",
+                hash: "SHA-256",
+                salt: saltBytes,
+                info: infoBytes
+            },
+            baseKey,
+            256
+        );
+
+        // 3. Import derived 256-bit material as AES-GCM CryptoKey
+        const aesCryptoKey = await crypto.subtle.importKey(
+            "raw",
+            derivedBits,
+            { name: "AES-GCM", length: 256 },
+            false,
+            ["encrypt", "decrypt"]
+        );
+
+        return aesCryptoKey;
     } catch (error) {
-        throw new Error(`HKDF Service Error: ${error.message}`);
+        console.error("HKDF Derivation error:", error);
+        throw new Error("Unable to establish secure encryption session.");
     }
 };
 
 /**
- * Synchronous variant of deriveSessionKey
+ * Async deriveSessionKeySync for backward compatibility
  */
-export const deriveSessionKeySync = ({
-    sharedSecret,
-    kdfSalt,
-    info = "SecureNet/chat/v1",
-    keyVersion = 1
-}) => {
-    if (!sharedSecret) {
-        throw new Error("Shared secret is required for key derivation");
-    }
-
-    if (!kdfSalt) {
-        throw new Error("kdfSalt is required for key derivation");
-    }
-
-    const secretBuffer = Buffer.isBuffer(sharedSecret)
-        ? sharedSecret
-        : typeof sharedSecret === "string"
-            ? Buffer.from(sharedSecret, "utf8")
-            : Buffer.from(sharedSecret);
-
-    const saltBuffer = Buffer.isBuffer(kdfSalt)
-        ? kdfSalt
-        : typeof kdfSalt === "string"
-            ? Buffer.from(kdfSalt, "base64")
-            : Buffer.from(kdfSalt);
-
-    const infoBuffer = Buffer.from(`${info}|v${keyVersion}`, "utf8");
-
-    const derivedKey = crypto.hkdfSync(
-        HASH_ALGORITHM,
-        secretBuffer,
-        saltBuffer,
-        infoBuffer,
-        SESSION_KEY_LENGTH
-    );
-
-    return new Uint8Array(derivedKey);
+export const deriveSessionKeySync = async (params) => {
+    return deriveSessionKey(params);
 };
 
 export default {

@@ -6,6 +6,7 @@ import {
     resendOtpHandler,
     loginUser,
     requestPasswordReset,
+    validateResetTokenHandler,
     confirmPasswordReset,
     logout,
     getCurrentUserHandler,
@@ -29,6 +30,8 @@ router.post("/resend-otp", resendOtpHandler);
 router.post("/login", loginUser);
 
 router.post("/forgot-password", requestPasswordReset);
+
+router.post("/reset-password/validate", validateResetTokenHandler);
 
 router.post("/reset-password", confirmPasswordReset);
 

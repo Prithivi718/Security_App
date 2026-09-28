@@ -1,0 +1,463 @@
+Implement the MAIN CHAT INTERFACE for SecureNet inside the existing client application.
+
+IMPORTANT:
+Do NOT redesign the entire application from scratch.
+Do NOT create a new folder structure.
+Refer to the existing `client/src/` structure and integrate into the existing architecture.
+
+Follow the existing SecureNet UI standards already established in the project:
+- Dark black/charcoal UI with subtle borders and restrained contrast.
+- Use the existing color palette and design tokens already present in the client.
+- Use Inter for normal UI text and JetBrains Mono only where technical/security values are displayed.
+- Keep the UI minimal, professional, security-focused, and inspired by WhatsApp Web's layout without copying it directly.
+- Reuse existing components, utilities, assets, services, context, hooks, layouts, and styles wherever appropriate.
+- Do NOT create replacement icons or random SVG icons. If an asset/icon is required and already exists, import it from the existing assets. Otherwise use the project's existing icon library/components consistently.
+
+==================================================
+MAIN CHAT PAGE
+==================================================
+
+Build the main application chat page.
+
+The layout should have three logical areas:
+
+1. Existing SecureNet sidebar
+2. Conversation list
+3. Main conversation/content panel
+
+The sidebar is already being handled separately, so integrate with it rather than rebuilding it.
+
+--------------------------------------------------
+CONVERSATION LIST
+--------------------------------------------------
+
+The conversation list should display:
+
+- Friend conversations
+- Group conversations
+- Avatar
+- Name
+- Last-message preview
+- Last activity time
+- Unread message count where applicable
+- Locked/unlocked visual state
+- Search conversations
+
+Friends and groups should be visually distinguishable but remain consistent with the SecureNet design.
+
+Do not expose plaintext encrypted message content if the conversation is locked.
+
+If the conversation has not been unlocked during the current session, show an appropriate locked state instead of displaying decrypted message content.
+
+--------------------------------------------------
+EMPTY CHAT / LANDING STATE
+--------------------------------------------------
+
+When no conversation is selected, display a clean SecureNet landing panel on the right.
+
+The landing panel should communicate the application's purpose without being excessive.
+
+Example concept:
+
+"Your conversations stay private."
+
+Supporting text:
+
+"Select a conversation to securely continue."
+
+Include a subtle SecureNet security/encryption visual using an existing project asset if available.
+
+Keep this area visually minimal.
+
+==================================================
+CONVERSATION SELECTION FLOW
+==================================================
+
+When the user clicks a friend or group:
+
+DO NOT immediately display the decrypted chat.
+
+First determine whether there is an active secure chat session for THAT specific conversation.
+
+The session must be conversation-specific.
+
+Example:
+
+Bob friendship:
+    Bob session → active for 10 minutes
+
+Charlie friendship:
+    Charlie session → separate session
+
+Project Alpha:
+    Group session → separate session
+
+Never treat one unlocked conversation as unlocking every conversation.
+
+--------------------------------------------------
+ACTIVE SESSION CHECK
+--------------------------------------------------
+
+When selecting a conversation:
+
+1. Identify whether it is a friend or group conversation.
+2. Obtain the corresponding friendshipId/groupId.
+3. Check the client-side session state/context.
+4. If an active session exists and has not expired:
+      open the conversation.
+5. If no active session exists:
+      keep the conversation content locked.
+      open the Shared Secret unlock overlay.
+
+Do not reuse another conversation's session.
+
+==================================================
+UNLOCK OVERLAY
+==================================================
+
+When a conversation is locked, display a centered security overlay.
+
+The background conversation should remain visible but:
+
+- blur it
+- darken it slightly
+- prevent interaction with the underlying chat
+- prevent message interaction while locked
+
+The overlay should contain:
+
+    🔒
+    Unlock Secure Chat
+
+    Enter your shared secret to continue
+    this secure conversation.
+
+    [ shared secret input ] [ show/hide ]
+
+    [ Unlock Chat ]
+
+    Session expires after 10 minutes.
+
+The exact visual design should match the existing SecureNet authentication dialogs.
+
+Do not make this look like a generic browser alert.
+
+It should feel like a secure access gate.
+
+==================================================
+UNLOCK API FLOW
+==================================================
+
+Use the existing API/service architecture.
+
+Do not place API requests directly inside large UI components.
+
+Use the existing:
+
+client/src/services/
+
+and existing chatSession service where appropriate.
+
+The client should:
+
+1. Receive the user's shared secret from the input.
+2. Send it through the existing secure-session API flow.
+3. Backend validates the shared secret.
+4. Backend creates/returns the secure session information.
+5. Backend returns the KDF parameters required by the client.
+6. Client stores only the necessary session/key material in appropriate client-side memory/state.
+7. Client derives the encryption key using the established HKDF flow.
+8. Mark that specific conversation as unlocked.
+9. Display the conversation.
+
+Do NOT display or persist the shared secret in the UI after submission.
+
+Do NOT put cryptographic implementation directly inside the React page component.
+
+Use the existing crypto/message service modules under:
+
+client/src/services/
+
+==================================================
+SECURE CHAT SESSION
+==================================================
+
+The secure session is conversation-specific and lasts 10 minutes.
+
+Display a small security/session indicator in the conversation header:
+
+    🔒 Secure session · 09:42
+
+The timer should update while the conversation is open.
+
+When the timer reaches zero:
+
+1. Expire the client-side session state.
+2. Clear sensitive encryption key material from client state/memory as far as practical.
+3. Stop allowing encrypted message decryption/encryption for that session.
+4. Blur/lock the conversation UI.
+5. Display the unlock overlay again.
+6. Require the shared secret again.
+
+Do NOT navigate the user out of the entire application.
+
+The user should remain on the same conversation, but it should become locked again.
+
+Example:
+
+Active:
+
+    Bob Wilson
+    🔒 Secure session · 08:42
+
+After expiration:
+
+    [blurred conversation]
+
+          🔒
+      Chat Session Expired
+
+      Enter your shared secret
+      to continue this conversation.
+
+      [ Unlock Chat ]
+
+==================================================
+CHAT MESSAGE AREA
+==================================================
+
+Once unlocked, display the actual conversation.
+
+Header:
+
+- Avatar
+- Friend/group name
+- Online/member information where available
+- Secure session indicator
+- Appropriate conversation actions
+
+Message area:
+
+- Incoming messages on the left
+- Outgoing messages on the right
+- Timestamp
+- Appropriate delivery/read indicators if supported by the backend
+- File/message indicators where supported
+
+IMPORTANT:
+
+The backend stores encrypted message data.
+
+The client decrypts messages after receiving the encrypted message payload and having the appropriate active session/key.
+
+Plaintext messages should only exist in client memory/UI state during the active session.
+
+Do not introduce plaintext message persistence in localStorage, sessionStorage, IndexedDB, or other persistent browser storage.
+
+==================================================
+MESSAGE COMPOSER
+==================================================
+
+At the bottom:
+
+- Message input
+- Send button
+- Attachment button only if the backend/message architecture supports it
+- Appropriate disabled state while session is locked/expired
+
+Before sending:
+
+plaintext message
+      ↓
+client-side encryption
+      ↓
+encrypted payload
+      ↓
+API request
+      ↓
+backend stores encrypted message
+
+The server should never receive plaintext message content.
+
+Do not implement cryptographic logic inside the visual chat component.
+
+Use the existing message service / crypto service modules.
+
+==================================================
+GROUP CHAT
+==================================================
+
+The same interface must support groups.
+
+For a group:
+
+- Display group name
+- Member count
+- Group avatar
+- Member information where available
+- Group messages
+- Same secure-session mechanism
+
+Selecting a group must require the group's shared secret if no active group session exists.
+
+A friendship session must NEVER unlock a group.
+
+A group session must NEVER unlock a friendship.
+
+==================================================
+SESSION EXPIRATION UX
+==================================================
+
+When the session expires, preserve the conversation position and UI underneath the overlay.
+
+Do not destroy the conversation page.
+
+Simply lock it again.
+
+The user experience should be:
+
+    Chat opened
+        ↓
+    10-minute secure session
+        ↓
+    Session expires
+        ↓
+    Background becomes blurred
+        ↓
+    Unlock overlay appears
+        ↓
+    Shared secret entered
+        ↓
+    New session
+        ↓
+    Same conversation continues
+
+==================================================
+STATE MANAGEMENT
+==================================================
+
+Use the existing context/hooks architecture.
+
+Do not create unnecessary global state.
+
+Session state should conceptually contain information such as:
+
+- conversation identifier
+- conversation type
+- session identifier
+- expiry timestamp
+- KDF parameters
+- client-side derived key/session crypto state
+
+Do NOT store the raw shared secret globally.
+
+Do NOT store plaintext messages persistently.
+
+Do NOT put secrets into URL parameters.
+
+Do NOT expose sensitive crypto material through console logs.
+
+==================================================
+API / SERVICE INTEGRATION
+==================================================
+
+Use the existing API service architecture.
+
+The UI should communicate through:
+
+- chatSession service
+- message service
+- friendship service
+- group service
+- existing API client
+
+Do not use direct fetch/axios calls from the page unless the existing architecture explicitly requires it.
+
+Follow the backend routes/controllers/services already implemented in this project.
+
+If an API response differs from what the UI requires, adapt through the service layer rather than coupling the component directly to backend response structures.
+
+==================================================
+IMPORTANT SECURITY UX RULES
+==================================================
+
+1. Login authentication ≠ chat unlock.
+
+2. Being logged into SecureNet does NOT automatically unlock conversations.
+
+3. Every friendship/group has its own secure session.
+
+4. Sessions last 10 minutes.
+
+5. Session expiration locks only the affected conversation.
+
+6. Never display the shared secret after submission.
+
+7. Never store the shared secret in persistent browser storage.
+
+8. Never display plaintext encrypted messages while the conversation is locked.
+
+9. Never send plaintext messages to the backend.
+
+10. Never log secrets, derived keys, plaintext messages, ciphertext, or authentication material.
+
+==================================================
+RESPONSIVENESS
+==================================================
+
+Desktop is the primary target because the application is currently designed similar to WhatsApp Web.
+
+However, make the layout responsive enough that:
+
+- conversation list can collapse when required
+- chat panel remains usable
+- unlock overlay remains centered
+- sidebar behavior follows the existing sidebar implementation
+
+Do not redesign the mobile application yet.
+
+==================================================
+IMPLEMENTATION BOUNDARY
+==================================================
+
+Only implement the MAIN CHAT EXPERIENCE.
+
+Do NOT redesign:
+
+- Login
+- Registration
+- OTP
+- Forgot password
+- Reset password
+- Find People
+- Friend Requests
+- Settings
+- Sidebar itself
+
+Those already have their own implementation/tasks.
+
+Only integrate with them where navigation/state requires it.
+
+Follow the existing client folder structure and existing design system.
+
+Before modifying files, inspect the current client implementation and reuse existing components/services/hooks/context wherever possible.
+
+Do not duplicate functionality that already exists.
+
+After implementation, verify:
+
+- conversation selection
+- locked state
+- unlock overlay
+- API integration
+- session timer
+- session expiration
+- re-locking
+- friend chat
+- group chat
+- message loading
+- encrypted message send flow
+- encrypted message receive/decrypt flow
+- no sensitive data in console
+- no plaintext persistence
+- no cross-conversation session reuse

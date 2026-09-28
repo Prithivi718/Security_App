@@ -32,8 +32,13 @@ export const forgotPassword = async ({ emailId }) => {
     return api.post("/auth/forgot-password", { emailId });
 };
 
-export const resetPassword = async ({ emailId, token, password }) => {
-    return api.post("/auth/reset-password", { emailId, token, password });
+export const validateResetToken = async ({ emailId, token }) => {
+    return api.post("/auth/reset-password/validate", { emailId, token });
+};
+
+export const resetPassword = async ({ emailId, token, newPassword, password }) => {
+    const targetPassword = newPassword || password;
+    return api.post("/auth/reset-password", { emailId, token, newPassword: targetPassword });
 };
 
 export default {
@@ -44,5 +49,7 @@ export default {
     logout,
     getCurrentUser,
     forgotPassword,
+    validateResetToken,
     resetPassword
 };
+

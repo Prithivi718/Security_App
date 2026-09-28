@@ -1,14 +1,15 @@
 import api from "./api.js";
-import { deriveSessionKeySync } from "./crypto/hkdf.service.js";
+import { deriveSessionKey } from "./crypto/hkdf.service.js";
 import { openConversationKey, clearConversationKey } from "./crypto/key.service.js";
 
 /**
- * Chat Session Service - Handles API session unlock, HKDF key derivation, and session lifecycle
+ * Chat Session Service - Handles API session unlock, Web Crypto HKDF key derivation, and session lifecycle
  */
 
 /**
  * Unlocks a friendship chat by authenticating the secretCode with the backend,
- * deriving the local AES-256-GCM key using the returned kdf.salt, and caching it in memory.
+ * deriving the local AES-256-GCM key using the returned kdf.salt & kdf.info via Web Crypto API,
+ * and caching the CryptoKey in volatile memory.
  * 
  * @param {string} friendshipId
  * @param {string} secretCode
@@ -18,7 +19,7 @@ export const unlockFriendshipChat = async (friendshipId, secretCode) => {
         throw new Error("Friendship ID and secret code are required to unlock chat");
     }
 
-    const response = await api.post(`/chat-sessions/friendships/${friendshipId}/unlock`, { secretCode });
+    const response = await api.post(`/chat-session/member/${friendshipId}/unlock`, { secretCode });
 
     const { session, kdf, keyVersion = 1 } = response;
 
@@ -26,8 +27,8 @@ export const unlockFriendshipChat = async (friendshipId, secretCode) => {
         throw new Error("Backend did not return expected KDF salt configuration");
     }
 
-    // Derive 32-byte AES-256-GCM session key locally
-    const sessionKey = deriveSessionKeySync({
+    // Derive 256-bit AES-256-GCM session CryptoKey locally using Web Crypto API
+    const sessionKey = await deriveSessionKey({
         sharedSecret: secretCode,
         kdfSalt: kdf.salt,
         info: kdf.info || "SecureNet/chat/v1",
@@ -49,7 +50,8 @@ export const unlockFriendshipChat = async (friendshipId, secretCode) => {
 
 /**
  * Unlocks a group chat by authenticating the secretCode with the backend,
- * deriving the local AES-256-GCM key using the returned kdf.salt, and caching it in memory.
+ * deriving the local AES-256-GCM key using the returned kdf.salt & kdf.info via Web Crypto API,
+ * and caching the CryptoKey in volatile memory.
  * 
  * @param {string} groupId
  * @param {string} secretCode
@@ -59,7 +61,7 @@ export const unlockGroupChat = async (groupId, secretCode) => {
         throw new Error("Group ID and secret code are required to unlock group chat");
     }
 
-    const response = await api.post(`/chat-sessions/groups/${groupId}/unlock`, { secretCode });
+    const response = await api.post(`/chat-session/group/${groupId}/unlock`, { secretCode });
 
     const { session, kdf, keyVersion = 1 } = response;
 
@@ -67,8 +69,8 @@ export const unlockGroupChat = async (groupId, secretCode) => {
         throw new Error("Backend did not return expected KDF salt configuration");
     }
 
-    // Derive 32-byte AES-256-GCM session key locally
-    const sessionKey = deriveSessionKeySync({
+    // Derive 256-bit AES-256-GCM session CryptoKey locally using Web Crypto API
+    const sessionKey = await deriveSessionKey({
         sharedSecret: secretCode,
         kdfSalt: kdf.salt,
         info: kdf.info || "SecureNet/chat/v1",
@@ -97,7 +99,7 @@ export const validateChatSession = async (sessionId) => {
     if (!sessionId) {
         throw new Error("Session ID is required");
     }
-    return api.get(`/chat-sessions/${sessionId}/validate`);
+    return api.get(`/chat-session/${sessionId}/validate`);
 };
 
 /**
@@ -111,7 +113,7 @@ export const revokeChatSession = async (sessionId, conversationId = null) => {
         throw new Error("Session ID is required");
     }
 
-    const response = await api.post(`/chat-sessions/${sessionId}/revoke`);
+    const response = await api.delete(`/chat-session/${sessionId}`);
 
     if (conversationId) {
         clearConversationKey(conversationId);

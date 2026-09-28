@@ -1,0 +1,338 @@
+Implement the USERS / FIND PEOPLE page for SecureNet inside the existing client application.
+
+IMPORTANT:
+Do not redesign the entire application.
+Do not create a new folder structure.
+Refer to the existing `client/src/` architecture, existing components, services, hooks, context, layouts, styles, colors, fonts, and design tokens.
+
+Follow the existing SecureNet dark UI style:
+- Black/charcoal background
+- Subtle borders and restrained contrast
+- Inter for normal UI text
+- JetBrains Mono only for technical/security values
+- Reuse existing assets/icons/components
+- Do NOT create custom icons or random SVGs.
+
+==================================================
+PAGE PURPOSE
+==================================================
+
+This page is specifically for:
+
+1. Searching for users
+2. Sending friend requests
+3. Managing received friend requests
+4. Managing sent friend requests
+
+Do not mix this page with the main chat interface.
+
+==================================================
+1. FIND PEOPLE / SEARCH
+==================================================
+
+At the top of the page display:
+
+Find People
+
+Supporting text:
+
+"Search for people by username, email, or name."
+
+Add a prominent search input:
+
+[ 🔍 Search by name, email or username... ]
+
+Use the existing `user.service.js` for API communication.
+
+Do not put direct API requests inside the page component.
+
+Search results should appear below the search field.
+
+Each result should contain:
+
+- Avatar
+- Display name / username
+- Email where appropriate
+- Relationship status
+- Appropriate action button
+
+Example:
+
+Bob Wilson
+@bobwilson
+bob@example.com
+
+[ Add Friend ]
+
+==================================================
+2. FRIENDSHIP STATES
+==================================================
+
+The action displayed for a user must depend on the existing friendship/request state.
+
+Possible states:
+
+NO RELATIONSHIP
+    → [ Add Friend ]
+
+REQUEST SENT
+    → [ Request Sent ]
+
+INCOMING REQUEST
+    → [ Accept ] [ Decline ]
+
+ALREADY FRIENDS
+    → [ Friends ]
+
+BLOCKED
+    → [ Blocked ]
+
+CURRENT USER
+    → Do not display the current user as an addable result.
+
+Do not allow duplicate friend requests.
+
+The UI should always reflect the actual backend relationship state.
+
+==================================================
+3. FRIEND REQUEST SECTION
+==================================================
+
+Below the search/results area create:
+
+Friend Requests
+
+Inside this section provide a simple segmented switch:
+
+[ Received ] [ Sent ]
+
+IMPORTANT:
+
+This is NOT the animated Tabs component used by the OTP verification flow.
+
+Do NOT reuse the OTP Tabs UI.
+
+This should be a lightweight UI control specifically for switching between Received and Sent friend requests.
+
+It can visually behave like:
+
+┌──────────────┬──────────────┐
+│   Received   │     Sent     │
+└──────────────┴──────────────┘
+
+The active option should have a clear visual state using the existing SecureNet design tokens.
+
+Keep the animation subtle or use no animation if unnecessary.
+
+==================================================
+4. RECEIVED REQUESTS
+==================================================
+
+When `Received` is selected, display incoming requests.
+
+Each request should contain:
+
+- Avatar
+- Username/name
+- Optional mutual information if the backend provides it
+- Request timestamp if available
+
+Actions:
+
+[ Accept ] [ Decline ]
+
+Example:
+
+Bob Wilson
+@bobwilson
+
+        [ Accept ] [ Decline ]
+
+After accepting:
+
+Incoming request
+      ↓
+Accept
+      ↓
+Friendship becomes active
+      ↓
+Request disappears from Received
+      ↓
+User becomes a friend
+      ↓
+User becomes available for secure chat
+
+Do NOT ask for the shared secret during friend-request acceptance.
+
+Shared-secret setup/unlocking is a separate chat-security flow.
+
+==================================================
+5. SENT REQUESTS
+==================================================
+
+When `Sent` is selected, display outgoing requests.
+
+Each item should contain:
+
+- Avatar
+- Username/name
+- Request status
+- Timestamp if available
+
+Example:
+
+Charlie Kim
+@charliekim
+
+Request pending
+
+[ Cancel Request ]
+
+The user should be able to cancel an outgoing pending request if the backend supports the operation.
+
+Do not use a disabled button that looks broken.
+
+==================================================
+6. EMPTY STATES
+==================================================
+
+Handle empty states properly.
+
+Received:
+
+"No pending friend requests."
+
+Sent:
+
+"No sent friend requests."
+
+Search:
+
+"No users found."
+
+Initial state before searching:
+
+"Search for people to connect with."
+
+Keep empty states minimal and consistent with the existing SecureNet UI.
+
+==================================================
+7. API / SERVICE INTEGRATION
+==================================================
+
+Use the existing service architecture.
+
+Use:
+
+client/src/services/user.service.js
+client/src/services/friendship.service.js
+
+(or the existing equivalent files already present in the project).
+
+The page must NOT directly call fetch/axios if the project already has an API/service abstraction.
+
+Expected operations include:
+
+- Search users
+- Send friend request
+- Get received requests
+- Get sent requests
+- Accept request
+- Decline request
+- Cancel sent request
+
+Adapt the UI to the actual backend routes and response structures already implemented.
+
+Do not invent duplicate backend APIs.
+
+==================================================
+8. STATE / REFRESH BEHAVIOR
+==================================================
+
+After an action succeeds, update the relevant UI immediately.
+
+Examples:
+
+Add Friend
+    ↓
+Button becomes "Request Sent"
+
+Accept
+    ↓
+Remove request from Received
+    ↓
+User becomes a friend
+
+Decline
+    ↓
+Remove request from Received
+
+Cancel
+    ↓
+Remove request from Sent
+
+Avoid unnecessary full-page reloads.
+
+Use existing React hooks/context patterns where appropriate.
+
+==================================================
+9. RELATIONSHIP VS CHAT SECURITY
+==================================================
+
+Keep these concepts completely separate:
+
+Friendship:
+    User A ↔ User B
+    Relationship exists
+
+Chat security:
+    Shared secret
+        ↓
+    Secret verification
+        ↓
+    Secure chat session
+        ↓
+    10-minute unlock
+
+Accepting a friend request must NOT automatically unlock a chat.
+
+The shared secret should never be displayed or requested on this page.
+
+==================================================
+10. VISUAL DIRECTION
+==================================================
+
+The page should feel like a clean SecureNet contact-management interface.
+
+Avoid excessive cards, gradients, animations, or decorative elements.
+
+Use:
+
+- Clear section hierarchy
+- Compact user rows
+- Consistent avatar sizing
+- Subtle separators
+- Strong black/white text contrast
+- Clear primary/secondary button states
+- Responsive layout
+
+The Received/Sent switch should feel like a small control within the Friend Requests section, NOT like a full-page navigation tab system.
+
+==================================================
+11. IMPORTANT IMPLEMENTATION RULES
+==================================================
+
+Before modifying files:
+
+1. Inspect the existing client implementation.
+2. Inspect `user.service.js`.
+3. Inspect `friendship.service.js`.
+4. Inspect existing API utilities.
+5. Inspect existing components/styles.
+6. Reuse existing patterns instead of creating duplicates.
+
+Do not modify unrelated authentication, OTP, chat, encryption, or sidebar functionality.
+
+Only implement the Users / Find People experience and integrate it with the existing services.
+
+Do not log passwords, shared secrets, tokens, encryption keys, or other sensitive information to the console.

@@ -5,6 +5,7 @@ import {
     acceptFriendRequestHandler,
     getPendingFriendRequestsHandler,
     setSharedSecretHandler,
+    resetSharedSecretHandler,
     verifyFriendshipSecretHandler,
 } from "../controller/friendship.controller.js";
 
@@ -61,6 +62,18 @@ router.post(
     authUser,
     validateObjectId("friendshipId"),
     setSharedSecretHandler
+);
+
+
+// ==================================================
+// RESET SHARED SECRET
+// ==================================================
+
+router.delete(
+    "/:friendshipId/secret",
+    authUser,
+    validateObjectId("friendshipId"),
+    resetSharedSecretHandler
 );
 
 

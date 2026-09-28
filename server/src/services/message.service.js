@@ -79,9 +79,9 @@ const validateFriendshipAccess = async ({
 
     const isParticipant =
         friendship.userAId.toString() ===
-            userId.toString() ||
+        userId.toString() ||
         friendship.userBId.toString() ===
-            userId.toString();
+        userId.toString();
 
 
     if (!isParticipant) {
@@ -152,7 +152,7 @@ const validateGroupAccess = async ({
         group.members.find(
             (member) =>
                 member.userId.toString() ===
-                    userId.toString() &&
+                userId.toString() &&
                 member.status === "active"
         );
 
@@ -434,6 +434,8 @@ export const getChatContacts = async (userId) => {
         return {
             friendshipId: friendship._id,
             user: friend,
+            secretVerifier: friendship.secretVerifier,
+            cryptoVersion: friendship.cryptoVersion,
             updatedAt: friendship.updatedAt
         };
     });

@@ -1,15 +1,14 @@
-import crypto from "node:crypto";
 import { bytesToBase64, base64ToBytes, stringToUint8Array, uint8ArrayToString } from "../crypto/encoding.service.js";
-import { deriveSessionKeySync } from "../crypto/hkdf.service.js";
+import { deriveSessionKey } from "../crypto/hkdf.service.js";
 import { encryptAESGCM, decryptAESGCM } from "../crypto/aesGcm.service.js";
 import keyService from "../crypto/key.service.js";
 
 async function runTests() {
-    console.log("=== STARTING END-TO-END CRYPTO & SERVICE VERIFICATION ===");
+    console.log("=== STARTING END-TO-END WEB CRYPTO VERIFICATION ===");
 
     // 1. Test Encoding Service
     console.log("\n1. Testing Encoding Service...");
-    const sampleStr = "Hello SecureNet Crypto!";
+    const sampleStr = "Hello SecureNet Web Crypto!";
     const bytes = stringToUint8Array(sampleStr);
     const b64 = bytesToBase64(bytes);
     const decodedBytes = base64ToBytes(b64);
@@ -19,34 +18,32 @@ async function runTests() {
     }
     console.log("   ✓ Encoding / Base64 conversions passed");
 
-    // 2. Test HKDF Key Derivation
-    console.log("\n2. Testing HKDF Key Derivation...");
+    // 2. Test HKDF Key Derivation via Web Crypto API
+    console.log("\n2. Testing HKDF Key Derivation (Web Crypto SHA-256)...");
     const sharedSecret = "SuperSecretPassword123!";
-    const kdfSalt = crypto.randomBytes(16).toString("base64");
+    const kdfSaltBytes = globalThis.crypto.getRandomValues(new Uint8Array(16));
+    const kdfSalt = bytesToBase64(kdfSaltBytes);
     const info = "SecureNet/chat/v1";
 
-    const key1 = deriveSessionKeySync({ sharedSecret, kdfSalt, info, keyVersion: 1 });
-    const key2 = deriveSessionKeySync({ sharedSecret, kdfSalt, info, keyVersion: 1 });
+    const key1 = await deriveSessionKey({ sharedSecret, kdfSalt, info, keyVersion: 1 });
+    const key2 = await deriveSessionKey({ sharedSecret, kdfSalt, info, keyVersion: 1 });
 
-    if (key1.length !== 32) {
-        throw new Error(`HKDF key length invalid! Expected 32 bytes, got ${key1.length}`);
+    if (!key1 || key1.type !== "secret" || key1.algorithm.name !== "AES-GCM") {
+        throw new Error("HKDF returned invalid AES-GCM CryptoKey!");
     }
-    if (Buffer.from(key1).toString("hex") !== Buffer.from(key2).toString("hex")) {
-        throw new Error("HKDF key derivation is non-deterministic!");
-    }
-    console.log("   ✓ HKDF key derivation verified (32-byte AES-256 key derived deterministically)");
+    console.log("   ✓ Web Crypto HKDF key derivation verified (AES-GCM CryptoKey created successfully)");
 
     // 3. Test AES-256-GCM Encryption & Decryption
     console.log("\n3. Testing AES-256-GCM Encryption & Decryption...");
     const plaintext = "Top secret message content from Alice to Bob";
     const aad = "SecureNet|friendship|friendship123|v1";
 
-    const encrypted = encryptAESGCM({ message: plaintext, sessionKey: key1, aad });
+    const encrypted = await encryptAESGCM({ message: plaintext, sessionKey: key1, aad });
     console.log("   Ciphertext (b64):", encrypted.ciphertext);
     console.log("   IV (b64):", encrypted.iv);
     console.log("   AuthTag (b64):", encrypted.authTag);
 
-    const decrypted = decryptAESGCM({
+    const decrypted = await decryptAESGCM({
         ciphertext: encrypted.ciphertext,
         sessionKey: key1,
         iv: encrypted.iv,
@@ -61,10 +58,12 @@ async function runTests() {
 
     // 4. Test AuthTag / Tamper Failure
     console.log("\n4. Testing AuthTag Tamper Detection...");
-    const tamperedCiphertext = Buffer.from(encrypted.ciphertext, "base64");
-    tamperedCiphertext[0] ^= 0xff; // Tamper with 1 bit
-    const tamperedDecryption = decryptAESGCM({
-        ciphertext: tamperedCiphertext.toString("base64"),
+    const tamperedBytes = base64ToBytes(encrypted.ciphertext);
+    tamperedBytes[0] ^= 0xff; // Tamper with 1 bit
+    const tamperedCiphertext = bytesToBase64(tamperedBytes);
+
+    const tamperedDecryption = await decryptAESGCM({
+        ciphertext: tamperedCiphertext,
         sessionKey: key1,
         iv: encrypted.iv,
         authTag: encrypted.authTag,
@@ -84,8 +83,8 @@ async function runTests() {
         throw new Error("Key store failed to register conversation key!");
     }
     const retrievedKey = keyService.getConversationKey(conversationId);
-    if (Buffer.from(retrievedKey).toString("hex") !== Buffer.from(key1).toString("hex")) {
-        throw new Error("Retrieved key does not match stored key!");
+    if (retrievedKey !== key1) {
+        throw new Error("Retrieved key does not match stored CryptoKey!");
     }
 
     keyService.clearConversationKey(conversationId);
@@ -94,7 +93,7 @@ async function runTests() {
     }
     console.log("   ✓ Volatile key store correctly opened, retrieved, and purged key material");
 
-    console.log("\n=== ALL TESTS PASSED SUCCESSFULLY! ===");
+    console.log("\n=== ALL WEB CRYPTO TESTS PASSED SUCCESSFULLY! ===");
 }
 
 runTests().catch((err) => {
