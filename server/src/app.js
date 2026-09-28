@@ -23,7 +23,6 @@ const allowedOrigins = [
     "http://127.0.0.1:5000",
     "http://127.0.0.1:5173",
     "http://127.0.0.1:5174",
-    "https://security-app-57vh.vercel.app/",
     "https://security-app-red.vercel.app/"
 ];
 
