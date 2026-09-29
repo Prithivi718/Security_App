@@ -8,6 +8,7 @@ import {
     resetPassword,
     logoutUser,
     getCurrentUser,
+    updateProfile,
     searchUsers,
     updateUserRole,
     updateUserStatus,
@@ -229,6 +230,30 @@ export const getCurrentUserHandler = async (req, res) => {
         return res.status(200).json({ user: safeUser });
     } catch (err) {
         logger.error("Get Current User error:", err);
+        const statusCode = err.statusCode || 500;
+        return res.status(statusCode).json({
+            message: err.message || "Internal server error",
+        });
+    }
+};
+
+export const updateProfileHandler = async (req, res) => {
+    try {
+        const userId = req.user?._id || req.userId;
+        if (!userId) {
+            return res.status(401).json({ message: "Unauthorized" });
+        }
+
+        const { userName, emailId } = req.body;
+        const user = await updateProfile(userId, { userName, emailId });
+        const safeUser = typeof user.toJSON === "function" ? user.toJSON() : { ...user };
+
+        return res.status(200).json({
+            message: "Profile updated successfully",
+            user: safeUser,
+        });
+    } catch (err) {
+        logger.error("Update profile error:", err);
         const statusCode = err.statusCode || 500;
         return res.status(statusCode).json({
             message: err.message || "Internal server error",

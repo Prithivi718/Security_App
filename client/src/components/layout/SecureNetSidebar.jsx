@@ -91,7 +91,7 @@ function SecureNetNavItems() {
                             )}
                         >
                             <span className="flex items-center justify-center size-5 shrink-0">
-                                <Icon className={cn("size-4 shrink-0 transition-colors stroke-[2]", isActive ? "!text-[#FFFFFF] !stroke-[#FFFFFF]" : "text-[#555555] group-hover:text-[#111111]")} />
+                                <Icon className={cn("size-4 shrink-0 transition-colors stroke-[2]", isActive ? "!text-[#555555] !stroke-[#555555]" : "text-[#555555] group-hover:text-[#111111]")} />
                             </span>
                             {!collapsed && (
                                 <div className="flex items-center justify-between flex-1 min-w-0">

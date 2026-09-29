@@ -10,6 +10,7 @@ import {
     confirmPasswordReset,
     logout,
     getCurrentUserHandler,
+    updateProfileHandler,
 } from "../controller/auth.controller.js";
 
 import { authUser } from "../middleware/auth.middleware.js";
@@ -50,6 +51,12 @@ router.get(
     "/me",
     authUser,
     getCurrentUserHandler
+);
+
+router.patch(
+    "/profile",
+    authUser,
+    updateProfileHandler
 );
 
 

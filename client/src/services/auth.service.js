@@ -41,6 +41,10 @@ export const resetPassword = async ({ emailId, token, newPassword, password }) =
     return api.post("/auth/reset-password", { emailId, token, newPassword: targetPassword });
 };
 
+export const updateProfile = async ({ userName, emailId }) => {
+    return api.patch("/auth/profile", { userName, emailId });
+};
+
 export default {
     register,
     verifyOTP,
@@ -48,6 +52,7 @@ export default {
     login,
     logout,
     getCurrentUser,
+    updateProfile,
     forgotPassword,
     validateResetToken,
     resetPassword

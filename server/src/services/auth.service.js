@@ -518,6 +518,41 @@ export const getCurrentUser = async (userId) => {
     return user;
 };
 
+export const updateProfile = async (userId, { userName, emailId }) => {
+    const user = await User.findById(userId);
+
+    if (!user) {
+        const error = new Error("User not found");
+        error.statusCode = 404;
+        throw error;
+    }
+
+    if (userName && userName.toLowerCase().trim() !== user.userName) {
+        const cleanedUserName = userName.toLowerCase().trim();
+        const existingName = await User.findOne({ userName: cleanedUserName, _id: { $ne: userId } });
+        if (existingName) {
+            const error = new Error("Username already taken");
+            error.statusCode = 409;
+            throw error;
+        }
+        user.userName = cleanedUserName;
+    }
+
+    if (emailId && emailId.toLowerCase().trim() !== user.emailId) {
+        const cleanedEmail = emailId.toLowerCase().trim();
+        const existingEmail = await User.findOne({ emailId: cleanedEmail, _id: { $ne: userId } });
+        if (existingEmail) {
+            const error = new Error("Email address already registered");
+            error.statusCode = 409;
+            throw error;
+        }
+        user.emailId = cleanedEmail;
+    }
+
+    await user.save();
+    return user;
+};
+
 export const searchUsers = async (query, currentUserId) => {
 
     if (!query || query.trim().length < 2) {

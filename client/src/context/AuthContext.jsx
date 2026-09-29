@@ -118,6 +118,26 @@ export const AuthProvider = ({ children }) => {
         }
     };
 
+    const updateProfile = async ({ userName, emailId }) => {
+        try {
+            setIsLoading(true);
+            setAuthError(null);
+            const data = await authService.updateProfile({ userName, emailId });
+            if (data && data.user) {
+                setUser(data.user);
+                return { success: true, data };
+            }
+            return { success: false, message: data.message || "Failed to update profile" };
+        } catch (err) {
+            const statusCode = err.statusCode || 500;
+            const message = err.message || "Failed to update profile";
+            setAuthError({ statusCode, message });
+            return { success: false, statusCode, message };
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
     return (
         <AuthContext.Provider
             value={{
@@ -133,6 +153,7 @@ export const AuthProvider = ({ children }) => {
                 resendOTP,
                 logout,
                 checkAuthStatus,
+                updateProfile,
             }}
         >
             {children}
